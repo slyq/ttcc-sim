@@ -3,28 +3,31 @@
 Cog::Cog() {
     level = 0;
     hp = 0;
-    soaked = false;
     lured = false;
+    soaked = false;
+    jumped = false;
     executive = false;
 }
 
 Cog::Cog(int lvl) {
     level = lvl;
     hp = (lvl+1)*(lvl+2);
+    lured = false;
+    soaked = false;
+    jumped = false;
     executive = false;
 }
 
 Cog::Cog(int lvl, bool exe) {
     level = lvl;
     hp = exe ? (lvl+1)*(lvl+2)*1.5 : (lvl+1)*(lvl+2);
+    lured = false;
+    soaked = false;
+    jumped = false;
     executive = exe;
 }
 
-Cog::~Cog() {
-
-}
-
-Cog& Cog::operator=(Cog const& other) {
+Cog& Cog::operator=(const Cog& other) {
     level = other.level;
     hp = other.hp;
     soaked = other.soaked;
@@ -33,12 +36,13 @@ Cog& Cog::operator=(Cog const& other) {
     return *this;
 }
 
-int Cog::getHP() {
-    return hp;
-}
-
-int Cog::getLevel() {
-    return level;
+std::string Cog::getLevelName() {
+    if (level == 0) {
+        return "";
+    } else if (executive) {
+        return std::to_string(level) + ".exe";
+    }
+    return std::to_string(level);
 }
 
 void Cog::hit(int damage) { // deal raw damage
@@ -46,10 +50,6 @@ void Cog::hit(int damage) { // deal raw damage
     if (hp < 0) {
         hp = 0;
     }
-}
-
-void Cog::lure() {
-    lured = true;
 }
 
 std::ostream& operator<<(std::ostream& out, const Cog& cog) {

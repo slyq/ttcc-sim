@@ -3,44 +3,50 @@
 Cogset::Cogset(std::queue<int> set) : q(set) {
     srand(time(NULL));
     // for (int i = 3; i >= 0; --i) { // ceo
-    for (int i = rand() % 4 + 1; i >= 0; --i) { // other boss battles
+    for (int i = 0; i < rand() % 4 + 1; ++i) { // other boss battles
         if (!q.empty()) {
             if (rand() % 100 + 1 < EXE_CHANCE) {
-                cogs[i] = Cog(q.front(), true);
+                cogs.insert(cogs.begin(), Cog(q.front(), true));
             } else {
-                cogs[i] = Cog(q.front());
+                cogs.insert(cogs.begin(), Cog(q.front()));
             }
             q.pop();
-            ++size;
         }
     }
+}
+
+Cogset::Cogset(std::vector<Cog> set) {
+    cogs = set;
+}
+
+Cogset& Cogset::operator=(const Cogset& other) {
+    q = other.q;
+    cogs = other.cogs;
+    return *this;
 }
 
 void Cogset::load() {
     // shift right
-    Cog temp[4];
-    size_t index = 3;
-    size = 0;
-    for (int i = 3; i >= 0; --i) {
-        if (cogs[i].getHP() != 0) {
-            temp[index--] = cogs[i];
-            ++size;
+    for (std::vector<Cog>::iterator it = cogs.begin(); it != cogs.end(); ++it) {
+        if (it->getHP() == 0) {
+            cogs.erase(it);
+            --it;
         }
     }
-    if (size != 4) { // there were some cogs not alive
-        while (!q.empty() && size < 4) {
-            temp[index--] = Cog(q.front());
+    if (cogs.size() != 4) { // there were some cogs not alive
+        while (!q.empty() && cogs.size() < 4) {
+            if (rand() % 100 + 1 < EXE_CHANCE) {
+                cogs.insert(cogs.begin(), Cog(q.front(), true));
+            } else {
+                cogs.insert(cogs.begin(), Cog(q.front()));
+            }
             q.pop();
-            ++size;
-        }
-        for (size_t i = 0; i < 4; ++i) {
-            cogs[i] = temp[i];
         }
     }
 }
 
-int Cogset::getSize() {
-    return size;
+size_t Cogset::getSize() {
+    return cogs.size();
 }
 
 Cog& Cogset::getCog(int pos) {

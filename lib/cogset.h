@@ -8,14 +8,16 @@
 
 class Cogset {
     public:
+        Cogset() {}
         Cogset(std::queue<int>);
+        Cogset(std::vector<Cog> set);
+        Cogset& operator=(const Cogset& other);
         void load();
-        int getSize();
+        size_t getSize();
         Cog& getCog(int pos);
     private:
         std::queue<int> q;
-        Cog cogs[4];
-        int size = 0;
+        std::vector<Cog> cogs;
         const double EXE_CHANCE = 30;
 };
 

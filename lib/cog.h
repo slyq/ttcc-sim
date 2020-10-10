@@ -9,18 +9,23 @@ class Cog {
         Cog();
         Cog(int lvl);
         Cog(int lvl, bool exe);
-        ~Cog();
-        Cog& operator=(Cog const& other);
-        int getHP();
-        int getLevel();
+        ~Cog() {}
+        Cog& operator=(const Cog& other);
+        int getHP() { return hp;}
+        int getLevel() { return level; }
+        std::string getLevelName();
         void hit(int damage);
-        void lure();
+        void lure() { lured = true; }
+        bool getLured() { return lured; }
+        void soak() { soaked = true; }
+        bool getSoaked() { return soaked; }
         friend std::ostream& operator<<(std::ostream& out, const Cog& cog);
     protected:
         int hp;
         int level;
-        bool soaked;
         bool lured;
+        bool soaked;
+        bool jumped;
         bool executive;
 };
 

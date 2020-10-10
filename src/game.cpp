@@ -1,49 +1,29 @@
-#include "cog.h"
-#include "cogset.h"
-#include <iostream>
-#include <map>
+#include "battle.h"
+
+#include <stack>
 #include <string>
-#include <sstream>
-#include <string.h>
-#include <memory>
-#include <queue>
 
 using namespace std;
 
 int main() {
-    queue<int> battlequeue;
-    // TODO: make queue generator
-    for (int i = 6; i < 12; i++) {
-        battlequeue.push(i);
+    cout << "Input mode? (0 for tested generation, 1 for custom): ";
+    size_t i_config = 0;
+    Battle b;
+    if (cin >> i_config && i_config == 1) {
+        vector<Cog> loader;
+        string lvl;
+        for (int i = 0; i < 4; ++i) {
+            cin >> lvl;
+            loader.push_back(Cog(stoi(lvl), lvl.find(".exe") != string::npos));
+        }
+        b = Battle(loader);
+    } else {
+        b = Battle();
     }
-    Cogset battles = Cogset(battlequeue);
-    while (battles.getSize() != 0) {
-        for (int i = 0; i < 4; i++) {
-            cout << battles.getCog(i) << "\t\t";
-        }
-        cout << endl;
-        // TODO: add functionality for gags, up to 4 per turn
-        string gagtype;
-        cin >> gagtype;
-        if (gagtype == "sound") {
-            int s;
-            cin >> s;
-            for (int i = 0; i < 4; i++) {
-                battles.getCog(i).hit(s);
-            }
-        } else {
-            int s1;
-            int s1t;
-            int s2;
-            int s2t;
-            cin >> s1;
-            cin >> s1t;
-            cin >> s2;
-            cin >> s2t;
-            battles.getCog(s1t).hit(s1);
-            battles.getCog(s2t).hit(s2);
-        }
-        battles.load();
+    cout << "Strategy mode? (0 for one liners, 1 for individual commands): ";
+    size_t s_config;
+    if (cin >> s_config) {
+        b.main(s_config);
     }
     return 0;
 }
