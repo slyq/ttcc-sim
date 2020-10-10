@@ -10,7 +10,7 @@ TARGETS = $(BIN_DIR)/cog.o $(BIN_DIR)/cogset.o $(BIN_DIR)/gag_collection.o $(BIN
 all: $(TARGETS) game
 	-@echo "--- All Built! ---"
 
-game: $(SRC_DIR)/game.cpp $(TARGETS)
+game: $(SRC_DIR)/game.cpp $(TARGETS) $(LIB_DIR)/colors.h $(LIB_DIR)/rang.h
 	$(CC) $(CPPFLAGS) $^ -o $@
 
 $(BIN_DIR)/cog.o: $(SRC_DIR)/cog.cpp $(LIB_DIR)/cog.h $(BIN_DIR)/.dirstamp

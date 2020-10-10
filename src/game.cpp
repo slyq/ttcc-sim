@@ -23,6 +23,7 @@ int main() {
     cout << "Strategy mode? (0 for one liners, 1 for individual commands): ";
     size_t s_config;
     if (cin >> s_config) {
+        cin.ignore();
         b.main(s_config);
     }
     return 0;

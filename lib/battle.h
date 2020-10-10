@@ -54,6 +54,7 @@ private:
     Strategy parse_gags(std::string strat);
     void turn(Strategy strat);
     void print();
+    void sqattack(std::vector<DirectedGag> squirts);
     void zattack(std::vector<DirectedGag> zaps);
 };
 

@@ -1,5 +1,8 @@
 #include "cog.h"
 
+#include "rang.h"
+#include "colors.h"
+
 Cog::Cog() {
     level = 0;
     hp = 0;
@@ -53,11 +56,15 @@ void Cog::hit(int damage) { // deal raw damage
 }
 
 std::ostream& operator<<(std::ostream& out, const Cog& cog) {
+    if (cog.soaked) {
+        out << SOAKED;
+    }
     if (cog.level == 0) {
     } else if (cog.executive) {
         out << "Level " << std::to_string(cog.level) << ".exe: " << cog.hp;
     } else {
         out << "Level " << std::to_string(cog.level) << ": " << cog.hp;
     }
+    out << rang::style::reset;
     return out;
 }

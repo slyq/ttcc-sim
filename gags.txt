@@ -37,7 +37,7 @@ balloon 21
 seltzer 30
 hose 56
 cloud 80
-geyser 114
+geyser 115
 buzzer 3
 rug 6
 balloon 10
