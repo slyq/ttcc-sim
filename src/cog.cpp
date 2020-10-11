@@ -62,6 +62,9 @@ std::ostream& operator<<(std::ostream& out, const Cog& cog) {
     if (cog.lured) {
         out << LURED;
     }
+    if (cog.hp == 0) {
+        out << DEAD;
+    }
     if (cog.level == 0) {
     } else if (cog.executive) {
         out << "Level " << std::to_string(cog.level) << ".exe: " << cog.hp;

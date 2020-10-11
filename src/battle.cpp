@@ -91,6 +91,9 @@ void Battle::turn(Strategy strat) {
     if (!lure.empty()) {
         lureC(lure);
     }
+    if (!sound.empty()) {
+        soattack(sound);
+    }
     if (!squirt.empty()) {
         sqattack(squirt);
     }
@@ -156,7 +159,9 @@ Strategy Battle::parse_oneliner(string strat) {
             const Gag& g = gc.get(parser);
 
             if ((g.kind == GagKind::LURE && g.name.find("dollar") == string::npos) || g.kind == GagKind::SOUND) {
-                director.push_back(-1); // placeholder for lure/sound
+                for (int i = 0; i < multiplier; ++i) {
+                    director.push_back(-1); // placeholder for multi hit (lure/sound)
+                }
             } else if (c.getSize() == 1) {
                 director.push_back(0);
             } else {
@@ -227,62 +232,63 @@ Strategy Battle::parse_gags(string strat) {
     return strategy;
 }
 
-void Battle::main(size_t config) {
-    string strat;
-    position_definition["right"] = c.getSize() - 1;
-    while (c.getSize() != 0) {
-        for (size_t i = 0; i < c.getSize(); ++i) {
-            cout << c.getCog(i) << "\t\t";
-        }
-        cout << endl;
-        do {
-            try {
-                Strategy strategy;
-                if (config == 0) { // one liner
-                    cout << PROMPT << "Your strategy: " << rang::style::reset;
-                    getline(cin, strat);
-                    strategy = parse_oneliner(strat);
-                } else { // individual toon directing
-                    strategy = parse_gags(strat);
-                }
-                if (strat == "END") {
-                    cout << "Force stop" << endl;
-                    break;
-                }
-                turn(strategy);
-                // print cogs
-                /*cout << "Final result: ";
-                for (size_t i = 0; i < c.getSize(); ++i) {
-                    cout << c.getCog(i) << "\t\t";
-                }
-                cout << endl;*/
-                break;
-            } catch (const invalid_argument& e) {
-                cerr << e.what() << endl;
-            }
-        } while (true);
-        if (strat == "END") {
-            break;
-        }
-    }
-    if (c.getSize() == 0) {
-        cout << "You did it!" << endl;
-    }
-}
-
 void Battle::lureC(vector<DirectedGag> lures) {
+    vector<int> affected;
     for (DirectedGag g : lures) {
         if (g.target == -1) {
             for (size_t i = 0; i < c.getSize(); ++i) {
-                c.getCog(i).lure();
+                if (!c.getCog(i).getLured()) {
+                    c.getCog(i).lure();
+                    affected.push_back(i);
+                }
             }
             break;
+        } else {
+            c.getCog(g.target).lure();
+            affected.push_back(g.target);
         }
-        c.getCog(g.target).lure();
     }
-    cout << LURED << "Lure" << rang::style::reset << " - ";
+    cout << LURED << "Lure" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
-        cout << c.getCog(i) << "\t\t";
+        if (find(affected.begin(), affected.end(), i) != affected.end()) {
+            cout << ATTACKED << c.getCog(i) << ATTACKED << "\t\t";
+        } else {
+            cout << NOTATTACKED << c.getCog(i) << NOTATTACKED << "\t\t";
+        }
+    }
+    cout << endl;
+}
+
+void Battle::soattack(vector<DirectedGag> sounds) {
+    // get raw damage
+    int damage = 0;
+    for (DirectedGag g : sounds) {
+        damage += g.damage;
+    }
+    // apply prestige bonus
+    int maxlvl = -1;
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        if (c.getCog(i).getLevel() > maxlvl) {
+            maxlvl = c.getCog(i).getLevel();
+        }
+    }
+    damage += sounds.size() * ceil(maxlvl/2);
+    // apply multiple gag bonus if applicable
+    if (sounds.size() > 1) {
+        damage += ceil(damage * 0.2);
+    }
+    // unlure all cogs
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        if (c.getCog(i).getLured()) {
+            c.getCog(i).unlure();
+        }
+    }
+    // print
+    cout << "Sound\t";
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        Cog& cog = c.getCog(i);
+        cog.hit(damage);
+        cout << ATTACKED << cog << ATTACKED << "\t\t";
     }
     cout << endl;
 }
@@ -305,19 +311,23 @@ void Battle::sqattack(vector<DirectedGag> squirts) {
         }
         c.getCog(g.target).soak();
     }
-    cout << SOAKED << "Squirt" << rang::style::reset << " - ";
+    cout << SOAKED << "Squirt" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
         //cout << damages[i] << endl;
         Cog& cog = c.getCog(i);
-        if (cog.getLured()) {
-            cog.hit(ceil(damages[i] * 0.65));
-            cog.unlure();
+        if (damages[i]) {
+            cog.hit(damages[i]);
+            if (cog.getLured()) {
+                cog.hit(ceil(damages[i] * 0.65));
+                cog.unlure();
+            }
+            if (multi[i]) {
+                cog.hit(ceil(damages[i] * 0.2));
+            }
+            cout << ATTACKED << cog << ATTACKED << "\t\t";
+        } else {
+            cout << NOTATTACKED << cog << NOTATTACKED << "\t\t";
         }
-        if (multi[i]) {
-            cog.hit(ceil(damages[i] * 0.2));
-        }
-        cog.hit(damages[i]);
-        cout << c.getCog(i) << "\t\t";
     }
     cout << endl;
 }
@@ -375,11 +385,60 @@ void Battle::zattack(vector<DirectedGag> zaps) {
         }
         jumped[g.target] = false;
     }
-    cout << ZAPPED << "Zap" << rang::style::reset << " - ";
+    cout << ZAPPED << "Zap" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
         //cout << damages[i] << endl;
-        c.getCog(i).hit(damages[i]);
-        cout << c.getCog(i) << "\t\t";
+        Cog& cog = c.getCog(i);
+        /*if (cog.getLured() && damages[i]) {
+            cog.unlure();
+        }*/
+        cog.hit(damages[i]);
+        if (damages[i]) {
+            if (cog.getLured()) {
+                cog.unlure();
+            }
+            cout << ATTACKED << cog << ATTACKED << "\t\t";
+        } else {
+            cout << NOTATTACKED << cog << NOTATTACKED << "\t\t";
+        }
     }
     cout << endl;
+}
+
+void Battle::main(size_t config) {
+    string strat;
+    position_definition["right"] = c.getSize() - 1;
+    while (c.getSize() != 0) {
+        cout << endl << "\t";
+        for (size_t i = 0; i < c.getSize(); ++i) {
+            cout << " " << c.getCog(i) << "\t\t";
+        }
+        cout << endl << endl;
+        do {
+            try {
+                Strategy strategy;
+                if (config == 0) { // one liner
+                    cout << PROMPT << "Your strategy: " << rang::style::reset;
+                    getline(cin, strat);
+                    strategy = parse_oneliner(strat);
+                } else { // individual toon directing
+                    strategy = parse_gags(strat);
+                }
+                if (strat == "END") {
+                    cout << "Force stop" << endl;
+                    break;
+                }
+                turn(strategy);
+                break;
+            } catch (const invalid_argument& e) {
+                cerr << e.what() << endl;
+            }
+        } while (true);
+        if (strat == "END") {
+            break;
+        }
+    }
+    if (c.getSize() == 0) {
+        cout << "You did it!" << endl;
+    }
 }

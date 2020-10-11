@@ -55,6 +55,7 @@ private:
     void turn(Strategy strat);
     //void print();
     void lureC(std::vector<DirectedGag> lures);
+    void soattack(std::vector<DirectedGag> sounds);
     void sqattack(std::vector<DirectedGag> squirts);
     void zattack(std::vector<DirectedGag> zaps);
 };
