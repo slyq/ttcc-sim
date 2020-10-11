@@ -16,6 +16,7 @@ class Cog {
         std::string getLevelName();
         void hit(int damage);
         void lure() { lured = true; }
+        void unlure() { lured = false; }
         bool getLured() { return lured; }
         void soak() { soaked = true; }
         bool getSoaked() { return soaked; }

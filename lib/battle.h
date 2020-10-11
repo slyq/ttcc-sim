@@ -31,7 +31,7 @@ struct DirectedGagComparator {
 struct CrossDirectedGagComparator {
     bool operator() (const DirectedGag& first, const DirectedGag& second) const {
         if (first.damage == second.damage) {
-            return first.target < second.damage;
+            return first.target < second.target;
         }
         return first.damage < second.damage;
     }
@@ -53,7 +53,8 @@ private:
     Strategy parse_oneliner(std::string strat);
     Strategy parse_gags(std::string strat);
     void turn(Strategy strat);
-    void print();
+    //void print();
+    void lureC(std::vector<DirectedGag> lures);
     void sqattack(std::vector<DirectedGag> squirts);
     void zattack(std::vector<DirectedGag> zaps);
 };

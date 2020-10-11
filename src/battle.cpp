@@ -1,5 +1,6 @@
 #include "battle.h"
-
+#include "rang.h"
+#include "colors.h"
 #include <sstream>
 #include <cmath>
 #include <string>
@@ -17,9 +18,9 @@ Battle::Battle() { // default test run Battle
     }
     c = Cogset(set);
     position_definition["left"] = 0;
-    position_definition["mid left"] = 1;
+    position_definition["mid-left"] = 1;
     position_definition["mid"] = 1;
-    position_definition["mid right"] = 2;
+    position_definition["mid-right"] = 2;
     position_definition["right"] = c.getSize() - 1;
     gc = GagCollection();
 }
@@ -27,9 +28,9 @@ Battle::Battle() { // default test run Battle
 Battle::Battle(queue<int> set) { // pre generated set
     c = Cogset(set);
     position_definition["left"] = 0;
-    position_definition["mid left"] = 1;
+    position_definition["mid-left"] = 1;
     position_definition["mid"] = 1;
-    position_definition["mid right"] = 2;
+    position_definition["mid-right"] = 2;
     position_definition["right"] = c.getSize() - 1;
     gc = GagCollection();
 }
@@ -37,9 +38,9 @@ Battle::Battle(queue<int> set) { // pre generated set
 Battle::Battle(vector<Cog> set) { // pre generated set
     c = Cogset(set);
     position_definition["left"] = 0;
-    position_definition["mid left"] = 1;
+    position_definition["mid-left"] = 1;
     position_definition["mid"] = 1;
-    position_definition["mid right"] = 2;
+    position_definition["mid-right"] = 2;
     position_definition["right"] = c.getSize() - 1;
     gc = GagCollection();
 }
@@ -87,8 +88,15 @@ void Battle::turn(Strategy strat) {
     } else {
         reverse(zap.begin(), zap.end());
     }
-    sqattack(squirt);
-    zattack(zap);
+    if (!lure.empty()) {
+        lureC(lure);
+    }
+    if (!squirt.empty()) {
+        sqattack(squirt);
+    }
+    if (!zap.empty()) {
+        zattack(zap);
+    }
     c.load();
     position_definition["right"] = c.getSize() - 1;
 }
@@ -104,27 +112,27 @@ Strategy Battle::parse_oneliner(string strat) {
         int multiplier = 1;
         size_t quickhand = 0;
         if (!gc.contains(parser)) { // command specifies strategy first (multiple gags or quickhand combo)
-            if (parser.size() == 1 && isdigit(parser[0])) {
+            if (parser.size() == 1 && isdigit(parser[0])) { // multiple gag
                 multiplier = stoi(parser);
-            }
-            if (parser.size() != c.getSize()) {
+            } else if (parser.size() == c.getSize()) { // might be a quickhand strategy callout in x and -
+                for (size_t i = 0; i < c.getSize(); ++i) {
+                    if (parser[i] == 'x') {
+                        director.push_back(i);
+                        ++quickhand;
+                    } else if (parser[i] == 'X') {
+                        director.push_back(i);
+                        director.push_back(i);
+                        quickhand += 2;
+                    } else if (parser[i] != '-') {
+                        throw invalid_argument("Unrecognized quickhand strategy!");
+                    }
+                }
+            } else {
                 throw invalid_argument("Unrecognized gag/command!");
             }
-            // might be a strategy callout in x and -
-            for (size_t i = 0; i < c.getSize(); ++i) {
-                if (parser[i] == 'x') {
-                    director.push_back(i);
-                    ++quickhand;
-                } else if (parser[i] == 'X') {
-                    director.push_back(i);
-                    director.push_back(i);
-                    quickhand += 2;
-                } else if (parser[i] != '-') {
-                    throw invalid_argument("Unrecognized quickhand strategy!");
-                }
-            }
+            // check if followed with gag
             if ((!(ss >> parser) || !gc.contains(parser)) && parser != "cross") {
-                throw invalid_argument("Please supply the respective gag following the quickhand strategy.");
+                throw invalid_argument("Please supply the respective gag following your strategy.");
             }
             if (parser == "cross") {
                 config = 1;
@@ -153,17 +161,17 @@ Strategy Battle::parse_oneliner(string strat) {
                 director.push_back(0);
             } else {
                 ss >> parser;
-                if (parser == "mid") {
-                    ss >> parser;
-                    parser = "mid " + parser;
-                }
                 if (position_definition.find(parser) != position_definition.end()) { // word position check
-                    director.push_back(position_definition[parser]);
+                    for (int i = 0; i < multiplier; ++i) {
+                        director.push_back(position_definition[parser]);
+                    }
                 } else { // cog level position check
                     bool directed = false;
                     for (size_t i = 0; i < c.getSize(); i++) {
                         if (c.getCog(i).getLevelName() == parser) {
-                            director.push_back(i);
+                            for (int j = 0; j < multiplier; ++j) {
+                                director.push_back(i);
+                            }
                             directed = true;
                             break;
                         }
@@ -192,14 +200,10 @@ Strategy Battle::parse_gags(string strat) {
     string target;
     size_t numtoons = 4;
     for (size_t i = 1; i <= numtoons; ++i) {
-        cout << "Toon " << i << ": ";
+        cout << PROMPT << "Toon " << i << ": " << rang::style::reset;
         cin >> gag;
         if (gag != "PASS") {
             cin >> target;
-            if (target == "mid") {
-                cin >> target; // TODO: handle if only "mid"
-                target = "mid " + target;
-            }
             if (!gc.contains(gag) && (target.size() == 1 || !isdigit(target[0])) && position_definition.find(target) == position_definition.end()) {
                 cerr << "Unrecognized command!" << endl;
                 --i;
@@ -235,6 +239,7 @@ void Battle::main(size_t config) {
             try {
                 Strategy strategy;
                 if (config == 0) { // one liner
+                    cout << PROMPT << "Your strategy: " << rang::style::reset;
                     getline(cin, strat);
                     strategy = parse_oneliner(strat);
                 } else { // individual toon directing
@@ -261,15 +266,37 @@ void Battle::main(size_t config) {
         }
     }
     if (c.getSize() == 0) {
-        cout << "You did it!";
+        cout << "You did it!" << endl;
     }
+}
+
+void Battle::lureC(vector<DirectedGag> lures) {
+    for (DirectedGag g : lures) {
+        if (g.target == -1) {
+            for (size_t i = 0; i < c.getSize(); ++i) {
+                c.getCog(i).lure();
+            }
+            break;
+        }
+        c.getCog(g.target).lure();
+    }
+    cout << LURED << "Lure" << rang::style::reset << " - ";
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        cout << c.getCog(i) << "\t\t";
+    }
+    cout << endl;
 }
 
 void Battle::sqattack(vector<DirectedGag> squirts) {
     vector<int> damages;
+    vector<bool> multi;
     damages.assign(c.getSize(), 0);
+    multi.assign(c.getSize(), false);
     for (DirectedGag g : squirts) {
-        damages[g.target] += g.damage;
+        if (damages[g.target]) {
+            multi[g.target] = true;
+        }
+        damages[g.target] += g.damage; // accumulate raw damage
         if (g.target > 0) {
             c.getCog(g.target-1).soak();
         }
@@ -278,42 +305,66 @@ void Battle::sqattack(vector<DirectedGag> squirts) {
         }
         c.getCog(g.target).soak();
     }
+    cout << SOAKED << "Squirt" << rang::style::reset << " - ";
     for (size_t i = 0; i < c.getSize(); ++i) {
         //cout << damages[i] << endl;
-        c.getCog(i).hit(damages[i]);
+        Cog& cog = c.getCog(i);
+        if (cog.getLured()) {
+            cog.hit(ceil(damages[i] * 0.65));
+            cog.unlure();
+        }
+        if (multi[i]) {
+            cog.hit(ceil(damages[i] * 0.2));
+        }
+        cog.hit(damages[i]);
+        cout << c.getCog(i) << "\t\t";
     }
+    cout << endl;
 }
 
 void Battle::zattack(vector<DirectedGag> zaps) {
     vector<bool> jumped;
     jumped.assign(c.getSize(), false);
+
     //bool jumped[4] = {false, false, false, false};
-    for (size_t i = 0; i < c.getSize(); ++i) {
+    /*for (size_t i = 0; i < c.getSize(); ++i) {
         if (!c.getCog(i).getSoaked()) {
             jumped[i] = true;
         }
+    }*/
+    vector<bool> soaked;
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        soaked.push_back(c.getCog(i).getSoaked());
     }
     vector<int> damages;
     damages.assign(c.getSize(), 0);
     //sort(zaps.begin(), zaps.end(), DirectedGagComparator());
     for (DirectedGag g : zaps) {
+        vector<bool> examined;
+        examined.assign(c.getSize(), false);
         size_t jump_count = 0;
         int examine_count = 0;
         int targ = g.target;
         int dir = -1;
         int lasttarg = -1;
         while (jump_count < 3 && examine_count < (int)c.getSize() && (lasttarg == -1 || abs(targ - lasttarg) <= 2)) {
-            if (lasttarg != -1 && abs(targ - lasttarg) > 2) {
+            /*if (lasttarg != -1 && abs(targ - lasttarg) > 2) {
+                break;
+            }*/
+            if (jump_count == 0 && !soaked[targ]) { // starting on a dry cog
+                damages[targ] += g.damage;
                 break;
             }
-            if (jump_count == 0 || !jumped[targ]) {
+            if ((jump_count == 0 || !jumped[targ]) && soaked[targ]) {
                 damages[targ] += ceil((3 - jump_count*0.5) * g.damage);
                 jumped[targ] = true;
+                examined[targ] = true;
                 lasttarg = targ;
                 ++jump_count;
                 ++examine_count;
-            } else if ((targ != g.target && jumped[targ])) {
+            } else if (targ != g.target && (jumped[targ] || !soaked[targ]) && !examined[targ]) {
                 ++examine_count;
+                examined[targ] = true;
             }
             if (targ == 0) {
                 dir = 1;
@@ -324,8 +375,11 @@ void Battle::zattack(vector<DirectedGag> zaps) {
         }
         jumped[g.target] = false;
     }
+    cout << ZAPPED << "Zap" << rang::style::reset << " - ";
     for (size_t i = 0; i < c.getSize(); ++i) {
         //cout << damages[i] << endl;
         c.getCog(i).hit(damages[i]);
+        cout << c.getCog(i) << "\t\t";
     }
+    cout << endl;
 }
