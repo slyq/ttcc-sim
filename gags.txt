@@ -1,64 +1,64 @@
-feather 0
-megaphone 0
-lipstick 0
-bamboo 0
-pixie 0
-juggling 0
-confetti 0
-highdive 0
-banana 20
-rake 30
-spring 45
-marbles 65
-quicksand 90
-trapdoor 140
-wreckingball 200
-tnt 240
-1dollar 0
-smallmagnet 0
-5dollar 0
-bigmagnet 0
-10dollar 0
-hypno 0
-50dollar 0
-presentation 0
-kazoo 4
-bikehorn 7
-whistle 11
-bugle 16
-aoogah 21
-trunk 32
-fog 50
-opera 65
-flower 4
-glass 8
-gun 12
-wballoon 21
-seltzer 30
-hose 56
-cloud 80
-geyser 115
-buzzer 3
-rug 6
-balloon 10
-kart 16
-taser 24
-tv 40
-tesla 66
-lightning 80
-cupcake 7
-fruitslice 11
-creamslice 18
-bdayslice 30
-fruit 45
-cream 75
-cake 110
-wedding 145
-pot 12
-sandbag 20
-bowling 35
-anvil 55
-weight 80
-safe 125
-boulder 180
-piano 220
+feather 8 .70
+megaphone 15 .70
+lipstick 26 .70
+bamboo 39 .70
+pixie 50 .70
+juggling 78 .70
+confetti 95 .70
+highdive 135 .70
+banana 20 1.00
+rake 30 1.00
+spring 45 1.00
+marbles 65 1.00
+quicksand 90 1.00
+trapdoor 140 1.00
+wreckingball 200 1.00
+tnt 240 1.00
+1dollar 0 .50
+smallmagnet 0 .50
+5dollar 0 .60
+bigmagnet 0 .60
+10dollar 0 .70
+hypno 0 .70
+50dollar 0 .80
+presentation 0 .80
+kazoo 4 .95
+bikehorn 7 .95
+whistle 11 .95
+bugle 16 .95
+aoogah 21 .95
+trunk 32 .95
+fog 50 .95
+opera 65 .95
+flower 4 .95
+glass 8 .95
+gun 12 .95
+wballoon 21 .95
+seltzer 30 .95
+hose 56 .95
+cloud 80 .95
+geyser 115 .95
+buzzer 3 .30
+rug 6 .30
+balloon 10 .30
+kart 16 .30
+taser 24 .30
+tv 40 .30
+tesla 66 .30
+lightning 80 .30
+cupcake 7 .30
+fruitslice 11 .75
+creamslice 18 .75
+bdayslice 30 .75
+fruit 45 .75
+cream 75 .75
+cake 110 .75
+wedding 145 .75
+pot 12 .50
+sandbag 20 .50
+bowling 35 .50
+anvil 55 .50
+weight 80 .50
+safe 125 .50
+boulder 180 .50
+piano 220 .50

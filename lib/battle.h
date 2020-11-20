@@ -15,8 +15,10 @@ struct Strategy {
 };
 
 struct DirectedGag {
+    GagKind kind;
     int damage;
     int target;
+    bool pres;
 };
 
 struct DirectedGagComparator {
@@ -48,7 +50,7 @@ public:
 private:
     Cogset c;
     GagCollection gc;
-    std::map<std::string, int> position_definition;
+    std::map<std::string, int> position_definition = {{"left", 0}, {"mid-left", 1}, {"mid", 1}, {"mid-right", 2}, {"right", 0}};
 
     Strategy parse_oneliner(std::string strat);
     Strategy parse_gags(std::string strat);
@@ -58,6 +60,9 @@ private:
     void soattack(std::vector<DirectedGag> sounds);
     void sqattack(std::vector<DirectedGag> squirts);
     void zattack(std::vector<DirectedGag> zaps);
+    void thattack(std::vector<DirectedGag> throws);
+    void drattack(std::vector<DirectedGag> drops);
+    const std::string file_path = "gags.txt";
 };
 
 #endif

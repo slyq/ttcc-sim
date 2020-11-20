@@ -15,18 +15,17 @@ class Cog {
         int getLevel() { return level; }
         std::string getLevelName();
         void hit(int damage);
-        void lure() { lured = true; }
-        void unlure() { lured = false; }
-        bool getLured() { return lured; }
+        void setLured(int state) { lured = state; }
+        void unlure() { lured = 0; }
+        int getLured() { return lured; }
         void soak() { soaked = true; }
         bool getSoaked() { return soaked; }
         friend std::ostream& operator<<(std::ostream& out, const Cog& cog);
     protected:
         int hp;
         int level;
-        bool lured;
+        int lured;
         bool soaked;
-        bool jumped;
         bool executive;
 };
 

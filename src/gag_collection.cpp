@@ -2,64 +2,50 @@
 #include <fstream>
 #include <iostream>
 
-using namespace std;
-
-GagCollection::GagCollection() {
-    ifstream file(file_path);
+GagCollection GagCollection::read(const std::string& file_path) {
+    std::ifstream file(file_path);
     if (!file) {
-        throw runtime_error("cannot open gag definitions");
+        throw std::runtime_error("cannot open gag definitions");
     }
 
-    string name;
+    GagCollection gc;
+    std::string name;
     unsigned short damage;
+    float accuracy;
 
     for (size_t i = 0; i < 8; ++i) {
-        vector<Gag> gagset;
         for (size_t j = 0; j < 8; ++j) {
-            file >> name >> damage;
+            file >> name >> damage >> accuracy;
+            bool sos = j>7;
             switch (i) {
-            case 0:
-                gagset.push_back(Gag(GagKind::TOONUP, name, damage));
-                gagmap[name] = Gag(GagKind::TOONUP, name, damage);
-                break;
-            case 1:
-                gagset.push_back(Gag(GagKind::TRAP, name, damage));
-                gagmap[name] = Gag(GagKind::TRAP, name, damage);
-                break;
-            case 2:
-                gagset.push_back(Gag(GagKind::LURE, name, damage));
-                gagmap[name] = Gag(GagKind::LURE, name, damage);
-                break;
-            case 3:
-                gagset.push_back(Gag(GagKind::SOUND, name, damage));
-                gagmap[name] = Gag(GagKind::SOUND, name, damage);
-                break;
-            case 4:
-                gagset.push_back(Gag(GagKind::SQUIRT, name, damage));
-                gagmap[name] = Gag(GagKind::SQUIRT, name, damage);
-                break;
-            case 5:
-                gagset.push_back(Gag(GagKind::ZAP, name, damage));
-                gagmap[name] = Gag(GagKind::ZAP, name, damage);
-                break;
-            case 6:
-                gagset.push_back(Gag(GagKind::THROW, name, damage));
-                gagmap[name] = Gag(GagKind::THROW, name, damage);
-                break;
-            case 7:
-                gagset.push_back(Gag(GagKind::DROP, name, damage));
-                gagmap[name] = Gag(GagKind::DROP, name, damage);
-                break;
-            default:
-                break;
+                case 0:
+                    gc.gagmap[name] = Gag(GagKind::TOONUP, name, damage, accuracy);
+                    break;
+                case 1:
+                    gc.gagmap[name] = Gag(GagKind::TRAP, name, damage, accuracy);
+                    break;
+                case 2:
+                    gc.gagmap[name] = Gag(GagKind::LURE, name, damage, accuracy);
+                    break;
+                case 3:
+                    gc.gagmap[name] = Gag(GagKind::SOUND, name, damage, accuracy);
+                    break;
+                case 4:
+                    gc.gagmap[name] = Gag(GagKind::SQUIRT, name, damage, accuracy);
+                    break;
+                case 5:
+                    gc.gagmap[name] = Gag(GagKind::ZAP, name, damage, accuracy);
+                    break;
+                case 6:
+                    gc.gagmap[name] = Gag(GagKind::THROW, name, damage, accuracy);
+                    break;
+                case 7:
+                    gc.gagmap[name] = Gag(GagKind::DROP, name, damage, accuracy);
+                    break;
+                default:
+                    break;
             }
         }
-        gagsets.push_back(gagset);
     }
-}
-
-GagCollection& GagCollection::operator=(const GagCollection& other) {
-    gagsets = other.gagsets;
-    gagmap = other.gagmap;
-    return *this;
+    return gc;
 }

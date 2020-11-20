@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 #include <string>
-#include <vector>
 #include <map>
 #include <stdexcept>
 
@@ -22,27 +21,22 @@ enum class GagKind {
 struct Gag {
     GagKind kind;
     std::string name;
-    int damage;
-    //int target
-    //size_t accuracy;
-    //bool prestiged;
+    unsigned short damage;
+    float accuracy;
+    int target;
+    bool prestiged;
 
     Gag() : kind(GagKind::PASS) {}
-    Gag(GagKind k, std::string n, int d) : kind(k), name(n), damage(d) {}
+    Gag(GagKind k, std::string n, unsigned short d, float a) : kind(k), name(n), damage(d), accuracy(a) {}
 };
 
 class GagCollection {
     public:
-        GagCollection();
-        ~GagCollection() {}
-        GagCollection& operator=(const GagCollection& other);
-        const Gag& get(size_t row, size_t col) const { return gagsets[row][col]; }
+        static GagCollection read(const std::string& file_path);
         bool contains(std::string name) const { return gagmap.find(name) != gagmap.end(); }
         const Gag& get(std::string name) { return gagmap[name]; }
     private:
-        std::vector<std::vector<Gag>> gagsets;
         std::map<std::string, Gag> gagmap;
-        const std::string file_path = "gags.txt";
 };
 
 #endif

@@ -6,27 +6,24 @@
 Cog::Cog() {
     level = 0;
     hp = 0;
-    lured = false;
+    lured = 0;
     soaked = false;
-    jumped = false;
     executive = false;
 }
 
 Cog::Cog(int lvl) {
     level = lvl;
     hp = (lvl+1)*(lvl+2);
-    lured = false;
+    lured = 0;
     soaked = false;
-    jumped = false;
     executive = false;
 }
 
 Cog::Cog(int lvl, bool exe) {
     level = lvl;
     hp = exe ? (lvl+1)*(lvl+2)*1.5 : (lvl+1)*(lvl+2);
-    lured = false;
+    lured = 0;
     soaked = false;
-    jumped = false;
     executive = exe;
 }
 
@@ -59,7 +56,7 @@ std::ostream& operator<<(std::ostream& out, const Cog& cog) {
     if (cog.soaked) {
         out << SOAKED;
     }
-    if (cog.lured) {
+    if (cog.lured > 0) {
         out << LURED;
     }
     if (cog.hp == 0) {
