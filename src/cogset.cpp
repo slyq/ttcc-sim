@@ -2,8 +2,9 @@
 
 Cogset::Cogset(std::queue<int> set) : q(set) {
     srand(time(NULL));
+    int starting_size = rand() % 4 + 1;
     // for (int i = 3; i >= 0; --i) { // ceo
-    for (int i = 0; i < rand() % 4 + 1; ++i) { // other boss battles
+    for (int i = 0; i < starting_size; ++i) { // other boss battles
         if (!q.empty()) {
             if (rand() % 100 + 1 < EXE_CHANCE) {
                 cogs.insert(cogs.begin(), Cog(q.front(), true));

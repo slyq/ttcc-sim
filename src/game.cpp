@@ -7,32 +7,34 @@
 using namespace std;
 
 int main() {
-    string again = "Y";
-    while (again == "Y") {
-        cout << CONFIG << "Input mode? (0 for tested generation, 1 for custom): " << rang::style::reset;
-        size_t i_config = 0;
+    string again = "N";
+    do {
+        string choice = "Y";
+        // determine cog set
+        cout << CONFIG << "Use a randomly generated cog set? [Y/n] " << rang::style::reset;
         Battle b;
-        if (cin >> i_config && i_config == 1) {
+        getline(cin, choice);
+        if (choice == "n" || choice == "N") {
+            cout << CONFIG << "Specify the custom cog set: " << rang::style::reset;
             vector<Cog> loader;
             string lvl;
-            for (int i = 0; i < 4; ++i) {
-                cin >> lvl;
+            while (cin >> lvl) {
                 loader.push_back(Cog(stoi(lvl), lvl.find(".exe") != string::npos));
             }
             b = Battle(loader);
         } else {
             b = Battle();
         }
-        cout << CONFIG << "Strategy mode? (0 for one liners, 1 for individual commands): " << rang::style::reset;
-        size_t s_config;
-        if (cin >> s_config) {
-            cin.ignore();
-            b.main(s_config);
-            cout << CONFIG << "Try again? Y / (n): " << rang::style::reset;
-            cin >> again;
-        } else {
-            break;
-        }
-    }
+        // determine battle settings
+        cout << CONFIG << "Assume prestiged gags? [Y/n] " << rang::style::reset;
+        getline(cin, choice);
+        b.setPresState(choice != "n" && choice != "N");
+        // determine input method
+        cout << CONFIG << "Input using one-liners? (will use individual commands otherwise) [Y/n] " << rang::style::reset;
+        getline(cin, choice);
+        b.main(choice != "n" && choice != "N");
+        cout << CONFIG << "Try again? [y/N] " << rang::style::reset;
+        getline(cin, again);
+    } while (again == "y" || again == "Y");
     return 0;
 }

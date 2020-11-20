@@ -46,7 +46,9 @@ public:
     Battle(std::vector<Cog> set);
     Battle& operator=(const Battle& other) { c = other.c; return *this; }
     ~Battle() {}
-    void main(size_t config);
+    void main(bool line_input);
+
+    void setPresState(bool pres_state) { auto_pres = pres_state; }
 private:
     Cogset c;
     GagCollection gc;
@@ -63,6 +65,8 @@ private:
     void thattack(std::vector<DirectedGag> throws);
     void drattack(std::vector<DirectedGag> drops);
     const std::string file_path = "gags.txt";
+
+    bool auto_pres = true;
 };
 
 #endif

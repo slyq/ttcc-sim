@@ -15,6 +15,9 @@ class Cog {
         int getLevel() { return level; }
         std::string getLevelName();
         void hit(int damage);
+        void setTrap(int trap) { trapped = trap; }
+        void untrap() { trapped = 0; }
+        int getTrap() { return trapped; }
         void setLured(int state) { lured = state; }
         void unlure() { lured = 0; }
         int getLured() { return lured; }
@@ -24,6 +27,7 @@ class Cog {
     protected:
         int hp;
         int level;
+        int trapped;
         int lured;
         bool soaked;
         bool executive;

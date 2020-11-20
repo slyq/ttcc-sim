@@ -6,15 +6,29 @@
 #include <string>
 #include <cctype>
 #include <algorithm>
+#include <stdlib.h>
 
 using namespace std;
 
 Battle::Battle() { // default test run Battle
+    srand(time(NULL));
     gc = GagCollection::read(file_path);
     queue<int> set;
+    size_t min_level = 7;
+    size_t max_level = 17;
+    if (rand() % 2 == 0) {
+        set.push(rand() % (min_level/2) + min_level);
+    }
+    set.push(max_level);
     for (size_t repeat = 0; repeat < 3; ++repeat) {
-        for (size_t i = 12; i < 15; ++i) {
-            set.push(i);
+        for (size_t i = min_level; i < max_level; ++i) {
+            int random = rand() % 4;
+            if (random > 0) {
+                set.push(i);
+            }
+            if (random > 1) {
+                set.push(i);
+            }
         }
     }
     c = Cogset(set);
@@ -49,7 +63,11 @@ void Battle::turn(Strategy strat) {
         DirectedGag d_gag;
         d_gag.damage = g.damage;
         d_gag.target = strat.positions[i];
-        d_gag.pres = g.prestiged;
+        if (auto_pres) {
+            d_gag.pres = true;
+        } else {
+            d_gag.pres = g.prestiged;
+        }
         if (g.kind == GagKind::TOONUP) {
             toonup.push_back(d_gag);
         } else if (g.kind == GagKind::TRAP) {
@@ -555,7 +573,7 @@ void Battle::drattack(vector<DirectedGag> drops) {
     cout << endl;
 }
 
-void Battle::main(size_t config) {
+void Battle::main(bool line_input) {
     string strat;
     position_definition["right"] = c.getSize() - 1;
     while (c.getSize() != 0) {
@@ -567,7 +585,7 @@ void Battle::main(size_t config) {
         do {
             try {
                 Strategy strategy;
-                if (config == 0) { // one liner
+                if (line_input) { // one liner
                     cout << PROMPT << "Your strategy: " << rang::style::reset;
                     getline(cin, strat);
                     strategy = parse_oneliner(strat);
