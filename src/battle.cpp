@@ -54,6 +54,7 @@ void Battle::turn(Strategy strat) {
     for (size_t i = 0; i < strat.gags.size(); ++i) {
         const Gag& g = strat.gags[i];
         DirectedGag d_gag;
+        d_gag.kind = g.kind;
         d_gag.damage = g.damage;
         d_gag.target = strat.positions[i];
         if (auto_pres) {
@@ -167,10 +168,7 @@ Strategy Battle::parse_oneliner(string strat) {
                     config = 1;
                     ss >> parser;
                 }
-            }/* else if (!gc.contains(parser) && parser != "cross") {
-                // check if followed with gag
-                throw invalid_argument("Please supply the respective gag following your strategy.");
-            }*/ else if (!gc.contains(parser)) {
+            } else if (!gc.contains(parser)) {
                 throw invalid_argument("Unrecognized gag/command!");
             }
         }
@@ -258,7 +256,7 @@ Strategy Battle::parse_oneliner(string strat) {
     return strategy;
 }
 
-Strategy Battle::parse_gags(string strat) {
+Strategy Battle::parse_gags() {
     vector<Gag> gags;
     vector<int> director;
     string gag_name;
@@ -339,6 +337,7 @@ void Battle::lure_turn(vector<DirectedGag> lures) {
     vector<int> affected;
     for (DirectedGag g : lures) {
         if (g.target == -1) {
+            // group lure
             for (size_t i = 0; i < c.getSize(); ++i) {
                 if (!c.getCog(i).getLured()) {
                     if (g.pres) {
@@ -351,6 +350,7 @@ void Battle::lure_turn(vector<DirectedGag> lures) {
             }
             break;
         } else {
+            // single lure
             if (g.pres) {
                 c.getCog(g.target).setLured(2);
             } else {
@@ -359,6 +359,7 @@ void Battle::lure_turn(vector<DirectedGag> lures) {
             affected.push_back(g.target);
         }
     }
+    // print effect
     cout << LURED << "Lure" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
         if (find(affected.begin(), affected.end(), i) != affected.end()) {
@@ -392,16 +393,14 @@ void Battle::sound_turn(vector<DirectedGag> sounds) {
     if (sounds.size() > 1) {
         damage += ceil(damage * 0.2);
     }
-    // unlure all cogs
-    for (size_t i = 0; i < c.getSize(); ++i) {
-        if (c.getCog(i).getLured()) {
-            c.getCog(i).unlure();
-        }
-    }
-    // print
+    // damage and print effect
     cout << "Sound\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
         Cog& cog = c.getCog(i);
+        // unlure
+        if (cog.getLured()) {
+            cog.unlure();
+        }
         cog.hit(damage);
         cout << ATTACKED << cog << ATTACKED << "\t\t";
     }
@@ -426,20 +425,23 @@ void Battle::squirt_turn(vector<DirectedGag> squirts) {
         }
         c.getCog(g.target).soak();
     }
+    // damage and print effect
     cout << SOAKED << "Squirt" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
-        //cout << damages[i] << endl;
         Cog& cog = c.getCog(i);
         if (damages[i]) {
             cog.hit(damages[i]);
             if (cog.getLured() == 2) {
+                // pres lure knockback
                 cog.hit(ceil(damages[i] * 0.65));
                 cog.unlure();
             } else if (cog.getLured() == 1) {
+                // lure knockback
                 cog.hit(ceil(damages[i] * 0.5));
                 cog.unlure();
             }
             if (multi[i]) {
+                // combo bonus
                 cog.hit(ceil(damages[i] * 0.2));
             }
             cout << ATTACKED << cog << ATTACKED << "\t\t";
@@ -451,48 +453,42 @@ void Battle::squirt_turn(vector<DirectedGag> squirts) {
 }
 
 void Battle::zap_turn(vector<DirectedGag> zaps) {
+    // keep track of cogs that have been jumped in the same turn
     vector<bool> jumped(c.getSize(), false);
-
-    //bool jumped[4] = {false, false, false, false};
-    /*for (size_t i = 0; i < c.getSize(); ++i) {
-        if (!c.getCog(i).getSoaked()) {
-            jumped[i] = true;
-        }
-    }*/
+    // obtain soaked cogs valid for zapping
     vector<bool> soaked;
     for (size_t i = 0; i < c.getSize(); ++i) {
         soaked.push_back(c.getCog(i).getSoaked());
     }
     vector<int> damages(c.getSize(), 0);
-    //sort(zaps.begin(), zaps.end(), DirectedGagComparator());
     for (DirectedGag g : zaps) {
+        // examine each zap's effect on all cogs (avoid recalculating on the same cog)
         vector<bool> examined;
         examined.assign(c.getSize(), false);
         size_t jump_count = 0;
         int examine_count = 0;
         int targ = g.target;
-        int dir = -1;
-        int lasttarg = -1;
+        char dir = -1; // -1 left, 1 right
+        int lasttarg = -1; // keeps track of last cog hit (zap cannot jump more than two spaces)
         float dropoff = g.pres ? 0.5 : 0.75;
         while (jump_count < 3 && examine_count < (int)c.getSize() && (lasttarg == -1 || abs(targ - lasttarg) <= 2)) {
-            /*if (lasttarg != -1 && abs(targ - lasttarg) > 2) {
-                break;
-            }*/
+            // keep checking until jump count limit reached, all cogs examined, or zap fails to jump
             if (jump_count == 0 && !soaked[targ]) { // starting on a dry cog
                 damages[targ] += g.damage;
                 break;
             }
-            if ((jump_count == 0 || !jumped[targ]) && soaked[targ]) {
+            if ((jump_count == 0 || !jumped[targ]) && soaked[targ]) { // zappable cog
                 damages[targ] += ceil((3 - jump_count*dropoff) * g.damage);
                 jumped[targ] = true;
                 examined[targ] = true;
                 lasttarg = targ;
                 ++jump_count;
                 ++examine_count;
-            } else if (targ != g.target && (jumped[targ] || !soaked[targ]) && !examined[targ]) {
+            } else if (targ != g.target && (jumped[targ] || !soaked[targ]) && !examined[targ]) { // exhausted cog
                 ++examine_count;
                 examined[targ] = true;
             }
+            // change direction if necessary
             if (targ == 0) {
                 dir = 1;
             } else if (targ == (int)(c.getSize() - 1)) {
@@ -500,15 +496,14 @@ void Battle::zap_turn(vector<DirectedGag> zaps) {
             }
             targ += dir;
         }
+        // undo "jumped" for the targeted cog
         jumped[g.target] = false;
     }
+    // damage and print effect
     cout << ZAPPED << "Zap" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
-        //cout << damages[i] << endl;
+        // cout << damages[i] << endl;
         Cog& cog = c.getCog(i);
-        /*if (cog.getLured() && damages[i]) {
-            cog.unlure();
-        }*/
         cog.hit(damages[i]);
         if (damages[i]) {
             if (cog.getLured()) {
@@ -532,20 +527,23 @@ void Battle::throw_turn(vector<DirectedGag> throws) {
         // accumulate raw damage
         damages[g.target] += g.pres ? g.damage*1.15 : g.damage;
     }
+    // damage and print effect
     cout << THROWN << "Throw" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
-        //cout << damages[i] << endl;
         Cog& cog = c.getCog(i);
         if (damages[i]) {
             cog.hit(damages[i]);
             if (cog.getLured() == 2) {
+                // pres lure knockback
                 cog.hit(ceil(damages[i] * 0.65));
                 cog.unlure();
             } else if (cog.getLured() == 1) {
+                // lure knockback
                 cog.hit(ceil(damages[i] * 0.5));
                 cog.unlure();
             }
             if (multi[i]) {
+                // combo bonus
                 cog.hit(ceil(damages[i] * 0.2));
             }
             cout << ATTACKED << cog << ATTACKED << "\t\t";
@@ -564,13 +562,14 @@ void Battle::drop_turn(vector<DirectedGag> drops) {
         damages[g.target] += g.damage;
         multi[g.target]++;
     }
+    // damage and print effect
     cout << DROPPED << "Drop" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
-        //cout << damages[i] << endl;
         Cog& cog = c.getCog(i);
         if (damages[i] && !cog.getLured()) {
             cog.hit(damages[i]);
             if (multi[i] > 1) {
+                // combo bonus
                 cog.hit(ceil(damages[i] * (multi[i] + 1) / 10.0));
             }
             cout << ATTACKED << cog << ATTACKED << "\t\t";
@@ -583,26 +582,27 @@ void Battle::drop_turn(vector<DirectedGag> drops) {
 
 void Battle::main(bool line_input) {
     string strat;
-    position_definition["right"] = c.getSize() - 1;
     while (c.getSize() != 0) {
+        // print cogs
         cout << endl << "\t";
         for (size_t i = 0; i < c.getSize(); ++i) {
             cout << " " << c.getCog(i) << "\t\t";
         }
         cout << endl << endl;
         do {
+            // get player strategy
             try {
                 Strategy strategy;
                 if (line_input) { // one liner
                     cout << PROMPT << "Your strategy: " << rang::style::reset;
                     getline(cin, strat);
+                    if (strat == "END") {
+                        cout << "Force stop" << endl;
+                        break;
+                    }
                     strategy = parse_oneliner(strat);
                 } else { // individual toon directing
-                    strategy = parse_gags(strat);
-                }
-                if (strat == "END") {
-                    cout << "Force stop" << endl;
-                    break;
+                    strategy = parse_gags();
                 }
                 turn(strategy);
                 break;
