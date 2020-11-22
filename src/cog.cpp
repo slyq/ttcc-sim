@@ -29,6 +29,9 @@ void Cog::hit(int damage) { // deal raw damage
 }
 
 std::ostream& operator<<(std::ostream& out, const Cog& cog) {
+    if (cog.lured == 2) {
+        out << PRESLURED;
+    }
     if (cog.soaked) {
         out << SOAKED;
     }
@@ -45,5 +48,8 @@ std::ostream& operator<<(std::ostream& out, const Cog& cog) {
         out << "Level " << std::to_string(cog.level) << ": " << cog.hp;
     }
     out << rang::style::reset;
+    if (cog.lured == 2) {
+        out << PRESLURED;
+    }
     return out;
 }

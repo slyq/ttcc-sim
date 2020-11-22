@@ -8,21 +8,8 @@
 #include <map>
 #include <stdexcept>
 
-struct Strategy {
-    std::vector<Gag> gags;
-    std::vector<int> positions;
-    size_t config = 0; // 0 default, 1 cross one-liner, 2 vectored gag
-};
-
-struct DirectedGag {
-    GagKind kind;
-    int damage;
-    int target;
-    bool pres;
-};
-
-struct DirectedGagComparator {
-    bool operator() (const DirectedGag& first, const DirectedGag& second) const {
+struct GagComparator {
+    bool operator() (const Gag& first, const Gag& second) const {
         if (first.damage == second.damage) {
             return second.target < first.target;
         }
@@ -30,8 +17,8 @@ struct DirectedGagComparator {
     }
 };
 
-struct CrossDirectedGagComparator {
-    bool operator() (const DirectedGag& first, const DirectedGag& second) const {
+struct CrossGagComparator {
+    bool operator() (const Gag& first, const Gag& second) const {
         if (first.damage == second.damage) {
             return first.target < second.target;
         }
@@ -49,21 +36,26 @@ public:
     void main(bool line_input);
 
     void setPresState(bool pres_state) { auto_pres = pres_state; }
+
+    struct Strategy {
+        std::vector<Gag> gags;
+        size_t config = 0; // 0 default, 1 cross one-liner, 2 left-to-right input
+    };
 private:
     Cogset c;
     GagCollection gc;
     std::map<std::string, int> position_definition = {{"left", 0}, {"mid-left", 1}, {"mid", 1}, {"mid-right", 2}, {"right", 0}};
 
     Strategy parse_oneliner(std::string strat);
-    Strategy parse_gags(std::string strat);
+    Strategy parse_gags();
     void turn(Strategy strat);
     //void print();
-    void lure_turn(std::vector<DirectedGag> lures);
-    void sound_turn(std::vector<DirectedGag> sounds);
-    void squirt_turn(std::vector<DirectedGag> squirts);
-    void zap_turn(std::vector<DirectedGag> zaps);
-    void throw_turn(std::vector<DirectedGag> throws);
-    void drop_turn(std::vector<DirectedGag> drops);
+    void lure_turn(std::vector<Gag> lures);
+    void sound_turn(std::vector<Gag> sounds);
+    void squirt_turn(std::vector<Gag> squirts);
+    void zap_turn(std::vector<Gag> zaps);
+    void throw_turn(std::vector<Gag> throws);
+    void drop_turn(std::vector<Gag> drops);
     const std::string file_path = "gags.txt";
 
     bool auto_pres = true;

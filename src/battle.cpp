@@ -45,40 +45,33 @@ Battle::Battle(vector<Cog> set) : c(Cogset(set)) { // pre generated set
     position_definition["right"] = c.getSize() - 1;
 }
 
-void Battle::turn(Strategy strat) {
-    vector<vector<DirectedGag>> gags;
+void Battle::turn(Battle::Strategy strat) {
+    vector<vector<Gag>> gags;
     for (size_t i = 0; i < 8; ++i) {
-        vector<DirectedGag> gagtrack;
+        vector<Gag> gagtrack;
         gags.push_back(gagtrack);
     }
     for (size_t i = 0; i < strat.gags.size(); ++i) {
-        const Gag& g = strat.gags[i];
-        DirectedGag d_gag;
-        d_gag.kind = g.kind;
-        d_gag.damage = g.damage;
-        d_gag.target = strat.positions[i];
         if (auto_pres) {
-            d_gag.pres = true;
-        } else {
-            d_gag.pres = g.prestiged;
+            strat.gags[i].prestiged = true;
         }
-        if (g.kind != GagKind::PASS) {
-            gags[(int)g.kind].push_back(d_gag);
+        if (strat.gags[i].kind != GagKind::PASS) {
+            gags[(int)strat.gags[i].kind].push_back(strat.gags[i]);
         }
     }
     // sort accordingly
     for (size_t i = 0; i < gags.size(); ++i) {
-        vector<DirectedGag>& gagtrack = gags[i];
+        vector<Gag>& gagtrack = gags[i];
         if (i == 5) {
-            if (strat.config == 1) {
-                sort(gagtrack.begin(), gagtrack.end(), CrossDirectedGagComparator());
-            } else if (strat.config == 0) {
-                sort(gagtrack.begin(), gagtrack.end(), DirectedGagComparator());
-            } else {
+            if (strat.config == 0) {
+                sort(gagtrack.begin(), gagtrack.end(), GagComparator());
+            } else if (strat.config == 1) {
+                sort(gagtrack.begin(), gagtrack.end(), CrossGagComparator());
+            } else if (strat.config == 2) {
                 reverse(gagtrack.begin(), gagtrack.end());
             }
         } else {
-            sort(gagtrack.begin(), gagtrack.end(), DirectedGagComparator());
+            sort(gagtrack.begin(), gagtrack.end(), GagComparator());
         }
     }
     for (size_t i = 0; i < gags.size(); ++i) {
@@ -111,7 +104,7 @@ void Battle::turn(Strategy strat) {
     position_definition["right"] = c.getSize() - 1;
 }
 
-Strategy Battle::parse_oneliner(string strat) {
+Battle::Strategy Battle::parse_oneliner(string strat) {
     vector<Gag> gags;
     vector<int> director;
     stringstream ss(strat);
@@ -249,16 +242,17 @@ Strategy Battle::parse_oneliner(string strat) {
             }
         }
     }
-    Strategy strategy;
+    for (size_t i = 0; i < gags.size(); ++i) {
+        gags[i].target = director[i];
+    }
+    Battle::Strategy strategy;
     strategy.gags = gags;
-    strategy.positions = director;
     strategy.config = config;
     return strategy;
 }
 
-Strategy Battle::parse_gags() {
+Battle::Strategy Battle::parse_gags() {
     vector<Gag> gags;
-    vector<int> director;
     string gag_name;
     string target;
     size_t numtoons = 4;
@@ -287,7 +281,7 @@ Strategy Battle::parse_gags() {
                 gag = Gag();
             }
             if ((gag.kind == GagKind::LURE && gag.name.find("dollar") == string::npos) || gag.kind == GagKind::SOUND) {
-                director.push_back(-1);
+                gag.target = -1;
             } else {
                 // parse target
                 while (true) {
@@ -296,7 +290,7 @@ Strategy Battle::parse_gags() {
                         bool directed = false;
                         for (size_t i = 0; i < c.getSize(); i++) {
                             if (c.getCog(i).getLevelName() == target) {
-                                director.push_back(i);
+                                gag.target = i;
                                 directed = true;
                                 break;
                             }
@@ -309,38 +303,37 @@ Strategy Battle::parse_gags() {
                     } else {
                         //gag.accuracy = reference_gag.accuracy;
                         if (target.size() == 1 && isdigit(target[0])) {
-                            director.push_back(stoi(target));
+                            gag.target = stoi(target);
                         } else {
-                            director.push_back(position_definition[target]);
+                            gag.target = position_definition[target];
                         }
                         break;
                     }
                 }
                 if (gag_name == "FIRE") {
-                    c.getCog(director.back()).hit(c.getCog(director.back()).getHP());
+                    c.getCog(gag.target).hit(c.getCog(gag.target).getHP());
                 }
             }
         } else {
-            director.push_back(-1);
+            gag.target = -1;
         }
         gag.prestiged = pr;
         gags.push_back(gag);
     }
-    Strategy strategy;
+    Battle::Strategy strategy;
     strategy.gags = gags;
-    strategy.positions = director;
-    strategy.config = 0;
+    strategy.config = 2;
     return strategy;
 }
 
-void Battle::lure_turn(vector<DirectedGag> lures) {
+void Battle::lure_turn(vector<Gag> lures) {
     vector<int> affected;
-    for (DirectedGag g : lures) {
+    for (Gag g : lures) {
         if (g.target == -1) {
             // group lure
             for (size_t i = 0; i < c.getSize(); ++i) {
                 if (!c.getCog(i).getLured()) {
-                    if (g.pres) {
+                    if (g.prestiged) {
                         c.getCog(i).setLured(2);
                     } else {
                         c.getCog(i).setLured(1);
@@ -351,7 +344,7 @@ void Battle::lure_turn(vector<DirectedGag> lures) {
             break;
         } else {
             // single lure
-            if (g.pres) {
+            if (g.prestiged) {
                 c.getCog(g.target).setLured(2);
             } else {
                 c.getCog(g.target).setLured(1);
@@ -371,25 +364,25 @@ void Battle::lure_turn(vector<DirectedGag> lures) {
     cout << endl;
 }
 
-void Battle::sound_turn(vector<DirectedGag> sounds) {
-    // get raw damage
-    int damage = 0;
-    for (DirectedGag g : sounds) {
-        damage += g.damage;
-    }
-    // apply prestige bonus
+void Battle::sound_turn(vector<Gag> sounds) {
+    // find max
     int maxlvl = -1;
     for (size_t i = 0; i < c.getSize(); ++i) {
         if (c.getCog(i).getLevel() > maxlvl) {
             maxlvl = c.getCog(i).getLevel();
         }
     }
-    for (DirectedGag g : sounds) {
-        if (g.pres) {
+    // get damages
+    int damage = 0;
+    for (Gag g : sounds) {
+        // add raw damage
+        damage += g.damage;
+        // apply prestige bonus
+        if (g.prestiged) {
             damage += ceil(maxlvl/2);
         }
     }
-    // apply multiple gag bonus if applicable
+    // apply multiple gag bonus
     if (sounds.size() > 1) {
         damage += ceil(damage * 0.2);
     }
@@ -407,15 +400,15 @@ void Battle::sound_turn(vector<DirectedGag> sounds) {
     cout << endl;
 }
 
-void Battle::squirt_turn(vector<DirectedGag> squirts) {
+void Battle::squirt_turn(vector<Gag> squirts) {
     vector<int> damages(c.getSize(), 0);
     vector<bool> multi(c.getSize(), false);
-    for (DirectedGag g : squirts) {
+    for (Gag g : squirts) {
         if (damages[g.target]) {
             multi[g.target] = true;
         }
         damages[g.target] += g.damage; // accumulate raw damage
-        if (g.pres) {
+        if (g.prestiged) {
             if (g.target > 0) {
                 c.getCog(g.target-1).soak();
             }
@@ -452,7 +445,7 @@ void Battle::squirt_turn(vector<DirectedGag> squirts) {
     cout << endl;
 }
 
-void Battle::zap_turn(vector<DirectedGag> zaps) {
+void Battle::zap_turn(vector<Gag> zaps) {
     // keep track of cogs that have been jumped in the same turn
     vector<bool> jumped(c.getSize(), false);
     // obtain soaked cogs valid for zapping
@@ -461,7 +454,7 @@ void Battle::zap_turn(vector<DirectedGag> zaps) {
         soaked.push_back(c.getCog(i).getSoaked());
     }
     vector<int> damages(c.getSize(), 0);
-    for (DirectedGag g : zaps) {
+    for (Gag g : zaps) {
         // examine each zap's effect on all cogs (avoid recalculating on the same cog)
         vector<bool> examined;
         examined.assign(c.getSize(), false);
@@ -470,7 +463,7 @@ void Battle::zap_turn(vector<DirectedGag> zaps) {
         int targ = g.target;
         char dir = -1; // -1 left, 1 right
         int lasttarg = -1; // keeps track of last cog hit (zap cannot jump more than two spaces)
-        float dropoff = g.pres ? 0.5 : 0.75;
+        float dropoff = g.prestiged ? 0.5 : 0.75;
         while (jump_count < 3 && examine_count < (int)c.getSize() && (lasttarg == -1 || abs(targ - lasttarg) <= 2)) {
             // keep checking until jump count limit reached, all cogs examined, or zap fails to jump
             if (jump_count == 0 && !soaked[targ]) { // starting on a dry cog
@@ -517,15 +510,15 @@ void Battle::zap_turn(vector<DirectedGag> zaps) {
     cout << endl;
 }
 
-void Battle::throw_turn(vector<DirectedGag> throws) {
+void Battle::throw_turn(vector<Gag> throws) {
     vector<int> damages(c.getSize(), 0);
     vector<bool> multi(c.getSize(), false);
-    for (DirectedGag g : throws) {
+    for (Gag g : throws) {
         if (damages[g.target]) {
             multi[g.target] = true;
         }
         // accumulate raw damage
-        damages[g.target] += g.pres ? g.damage*1.15 : g.damage;
+        damages[g.target] += g.prestiged ? g.damage*1.15 : g.damage;
     }
     // damage and print effect
     cout << THROWN << "Throw" << rang::style::reset << "\t";
@@ -554,10 +547,10 @@ void Battle::throw_turn(vector<DirectedGag> throws) {
     cout << endl;
 }
 
-void Battle::drop_turn(vector<DirectedGag> drops) {
+void Battle::drop_turn(vector<Gag> drops) {
     vector<int> damages(c.getSize(), 0);
     vector<int> multi(c.getSize(), 0);
-    for (DirectedGag g : drops) {
+    for (Gag g : drops) {
         // accumulate raw damage
         damages[g.target] += g.damage;
         multi[g.target]++;
@@ -592,7 +585,7 @@ void Battle::main(bool line_input) {
         do {
             // get player strategy
             try {
-                Strategy strategy;
+                Battle::Strategy strategy;
                 if (line_input) { // one liner
                     cout << PROMPT << "Your strategy: " << rang::style::reset;
                     getline(cin, strat);

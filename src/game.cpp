@@ -24,9 +24,7 @@ int main() {
     do {
         // setup
         Battle b;
-        if (generate) {
-            b = Battle();
-        } else {
+        if (!generate) {
             cout << CONFIG << "Specify the custom cog set: " << rang::style::reset;
             vector<Cog> loader;
             string lvl;
