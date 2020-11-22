@@ -16,10 +16,6 @@ Cogset::Cogset(std::queue<int> set) : q(set) {
     }
 }
 
-Cogset::Cogset(std::vector<Cog> set) {
-    cogs = set;
-}
-
 Cogset& Cogset::operator=(const Cogset& other) {
     q = other.q;
     cogs = other.cogs;
@@ -44,10 +40,6 @@ void Cogset::load() {
             q.pop();
         }
     }
-}
-
-size_t Cogset::getSize() {
-    return cogs.size();
 }
 
 Cog& Cogset::getCog(int pos) {

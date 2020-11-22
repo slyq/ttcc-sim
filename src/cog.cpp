@@ -3,30 +3,6 @@
 #include "rang.h"
 #include "colors.h"
 
-Cog::Cog() {
-    level = 0;
-    hp = 0;
-    lured = 0;
-    soaked = false;
-    executive = false;
-}
-
-Cog::Cog(int lvl) {
-    level = lvl;
-    hp = (lvl+1)*(lvl+2);
-    lured = 0;
-    soaked = false;
-    executive = false;
-}
-
-Cog::Cog(int lvl, bool exe) {
-    level = lvl;
-    hp = exe ? (lvl+1)*(lvl+2)*1.5 : (lvl+1)*(lvl+2);
-    lured = 0;
-    soaked = false;
-    executive = exe;
-}
-
 Cog& Cog::operator=(const Cog& other) {
     level = other.level;
     hp = other.hp;

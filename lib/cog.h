@@ -6,9 +6,9 @@
 
 class Cog {
     public:
-        Cog();
-        Cog(int lvl);
-        Cog(int lvl, bool exe);
+        Cog() : level(0), hp(0), trapped(0), lured(0), soaked(false), executive(false) {}
+        Cog(int lvl) : level(lvl), hp((lvl+1)*(lvl+2)), trapped(0), lured(0), soaked(false), executive(false) {}
+        Cog(int lvl, bool exe) : level(lvl), hp((lvl+1)*(lvl+2)*(exe ? 1.5 : 1)), trapped(0), lured(0), soaked(false), executive(exe) {}
         ~Cog() {}
         Cog& operator=(const Cog& other);
         int getHP() { return hp;}
@@ -25,8 +25,8 @@ class Cog {
         bool getSoaked() { return soaked; }
         friend std::ostream& operator<<(std::ostream& out, const Cog& cog);
     protected:
-        int hp;
         int level;
+        int hp;
         int trapped;
         int lured;
         bool soaked;

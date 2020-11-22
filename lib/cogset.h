@@ -10,10 +10,10 @@ class Cogset {
     public:
         Cogset() {}
         Cogset(std::queue<int>);
-        Cogset(std::vector<Cog> set);
+        Cogset(std::vector<Cog> set) : cogs(set) {}
         Cogset& operator=(const Cogset& other);
         void load();
-        size_t getSize();
+        size_t getSize() { return cogs.size(); }
         Cog& getCog(int pos);
     private:
         std::queue<int> q;

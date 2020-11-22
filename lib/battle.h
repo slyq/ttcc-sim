@@ -58,12 +58,12 @@ private:
     Strategy parse_gags(std::string strat);
     void turn(Strategy strat);
     //void print();
-    void lureC(std::vector<DirectedGag> lures);
-    void soattack(std::vector<DirectedGag> sounds);
-    void sqattack(std::vector<DirectedGag> squirts);
-    void zattack(std::vector<DirectedGag> zaps);
-    void thattack(std::vector<DirectedGag> throws);
-    void drattack(std::vector<DirectedGag> drops);
+    void lure_turn(std::vector<DirectedGag> lures);
+    void sound_turn(std::vector<DirectedGag> sounds);
+    void squirt_turn(std::vector<DirectedGag> squirts);
+    void zap_turn(std::vector<DirectedGag> zaps);
+    void throw_turn(std::vector<DirectedGag> throws);
+    void drop_turn(std::vector<DirectedGag> drops);
     const std::string file_path = "gags.txt";
 
     bool auto_pres = true;

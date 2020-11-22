@@ -7,15 +7,15 @@
 #include <stdexcept>
 
 enum class GagKind {
-    PASS,
-    TOONUP,
-    TRAP,
-    LURE,
-    SOUND,
-    SQUIRT,
-    ZAP,
-    THROW,
-    DROP,
+    PASS = -1,
+    TOONUP = 0,
+    TRAP = 1,
+    LURE = 2,
+    SOUND = 3,
+    SQUIRT = 4,
+    ZAP = 5,
+    THROW = 6,
+    DROP = 7,
 };
 
 struct Gag {
