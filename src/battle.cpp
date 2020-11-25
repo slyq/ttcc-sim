@@ -213,7 +213,11 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
                 for (int i = 0; i < multiplier; ++i) {
                     director.push_back(-1); // placeholder for multi hit (lure/sound)
                 }
+            } else if (gc.isSOS(parser)) {
+                // sos
+                director.push_back(-1);
             } else if (c.getSize() == 1) {
+                // single target, automatic
                 director.push_back(0);
             } else {
                 ss >> parser;
@@ -253,11 +257,11 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
 
 Battle::Strategy Battle::parse_gags() {
     vector<Gag> gags;
-    string gag_name;
-    string target;
     size_t numtoons = 4;
     for (size_t i = 1; i <= numtoons; ++i) {
         Gag gag;
+        string gag_name;
+        string target;
         bool pr = false;
         cout << PROMPT << "Toon " << i << ": " << rang::style::reset;
         cin >> gag_name;
@@ -267,6 +271,7 @@ Battle::Strategy Battle::parse_gags() {
         }
         while (!gc.contains(gag_name) && gag_name != "PASS" && gag_name != "FIRE") {
             cerr << "Unrecognized gag!" << endl;
+            cin.ignore();
             cout << PROMPT << "Toon " << i << ": " << rang::style::reset;
             cin >> gag_name;
             if (gag_name == "pres") {
@@ -277,40 +282,40 @@ Battle::Strategy Battle::parse_gags() {
         if (gag_name != "PASS") {
             if (gag_name != "FIRE") {
                 gag = gc.get(gag_name);
-            } else {
-                gag = Gag();
             }
             if ((gag.kind == GagKind::LURE && gag.name.find("dollar") == string::npos) || gag.kind == GagKind::SOUND) {
                 gag.target = -1;
             } else {
                 // parse target
-                while (true) {
-                    cin >> target;
-                    if ((target.size() == 1 && !isdigit(target[0])) || position_definition.find(target) == position_definition.end()) {
-                        bool directed = false;
-                        for (size_t i = 0; i < c.getSize(); i++) {
-                            if (c.getCog(i).getLevelName() == target) {
-                                gag.target = i;
-                                directed = true;
-                                break;
-                            }
-                        }
-                        if (directed) {
+                cin >> target;
+                if (target[0] == '!') {
+                    try {
+                        gag.target = stoi(target.substr(target.find("!") + 1));
+                        if (gag.target < 0 || gag.target >= (int)c.getSize()) throw invalid_argument("out of bounds");
+                    } catch (const invalid_argument& e) {
+                        cerr << "Invalid index!" << endl;
+                        --i;
+                        continue;
+                    }
+                } else if (position_definition.find(target) != position_definition.end()) {
+                    gag.target = position_definition[target];
+                } else {
+                    bool directed = false;
+                    for (size_t i = 0; i < c.getSize(); i++) {
+                        if (c.getCog(i).getLevelName() == target) {
+                            gag.target = i;
+                            directed = true;
                             break;
                         }
+                    }
+                    if (!directed) {
                         cerr << "Unrecognized target!" << endl;
-                        // --i; // parse again
-                    } else {
-                        //gag.accuracy = reference_gag.accuracy;
-                        if (target.size() == 1 && isdigit(target[0])) {
-                            gag.target = stoi(target);
-                        } else {
-                            gag.target = position_definition[target];
-                        }
-                        break;
+                        --i;
+                        continue;
                     }
                 }
                 if (gag_name == "FIRE") {
+                    // FIRE is a "pass" gag that damages cogs before the turn parses
                     c.getCog(gag.target).hit(c.getCog(gag.target).getHP());
                 }
             }
@@ -403,20 +408,41 @@ void Battle::sound_turn(vector<Gag> sounds) {
 void Battle::squirt_turn(vector<Gag> squirts) {
     vector<int> damages(c.getSize(), 0);
     vector<bool> multi(c.getSize(), false);
+    int targ = -1;
+    bool sos = false;
     for (Gag g : squirts) {
-        if (damages[g.target]) {
-            multi[g.target] = true;
-        }
-        damages[g.target] += g.damage; // accumulate raw damage
-        if (g.prestiged) {
-            if (g.target > 0) {
-                c.getCog(g.target-1).soak();
+        if (g.target == -1) {
+            // sos gag - hits all
+            for (size_t i = 0; i < damages.size(); ++i) {
+                if (damages[i]) {
+                    multi[i] = true;
+                }
+                damages[i] += g.damage;
+                c.getCog(i).soak();
             }
-            if (g.target < (int)c.getSize() - 1) {
-                c.getCog(g.target+1).soak();
+            sos = true;
+        } else {
+            // single target gag
+            // obtain first hit target for sos combo
+            if (targ == -1) {
+                targ = g.target;
             }
+            if (damages[g.target]) {
+                multi[g.target] = true;
+            }
+            // accumulate raw damage
+            damages[g.target] += g.damage;
+            // handle soaking
+            if (g.prestiged) {
+                if (g.target > 0) {
+                    c.getCog(g.target-1).soak();
+                }
+                if (g.target < (int)c.getSize() - 1) {
+                    c.getCog(g.target+1).soak();
+                }
+            }
+            c.getCog(g.target).soak();
         }
-        c.getCog(g.target).soak();
     }
     // damage and print effect
     cout << SOAKED << "Squirt" << rang::style::reset << "\t";
@@ -433,7 +459,9 @@ void Battle::squirt_turn(vector<Gag> squirts) {
                 cog.hit(ceil(damages[i] * 0.5));
                 cog.unlure();
             }
-            if (multi[i]) {
+            if (sos && targ != -1) {
+                cog.hit(ceil(damages[targ] * 0.2));
+            } else if (multi[i]) {
                 // combo bonus
                 cog.hit(ceil(damages[i] * 0.2));
             }
@@ -446,6 +474,7 @@ void Battle::squirt_turn(vector<Gag> squirts) {
 }
 
 void Battle::zap_turn(vector<Gag> zaps) {
+    vector<int> damages(c.getSize(), 0);
     // keep track of cogs that have been jumped in the same turn
     vector<bool> jumped(c.getSize(), false);
     // obtain soaked cogs valid for zapping
@@ -453,8 +482,14 @@ void Battle::zap_turn(vector<Gag> zaps) {
     for (size_t i = 0; i < c.getSize(); ++i) {
         soaked.push_back(c.getCog(i).getSoaked());
     }
-    vector<int> damages(c.getSize(), 0);
     for (Gag g : zaps) {
+        if (g.target == -1) {
+            for (size_t i = 0; i < damages.size(); ++i) {
+                damages[i] += g.damage*3;
+            }
+            // TODO: double check how sos zap + regular zap work
+            continue;
+        }
         // examine each zap's effect on all cogs (avoid recalculating on the same cog)
         vector<bool> examined;
         examined.assign(c.getSize(), false);
@@ -513,12 +548,30 @@ void Battle::zap_turn(vector<Gag> zaps) {
 void Battle::throw_turn(vector<Gag> throws) {
     vector<int> damages(c.getSize(), 0);
     vector<bool> multi(c.getSize(), false);
+    int targ = -1;
+    bool sos = false;
     for (Gag g : throws) {
-        if (damages[g.target]) {
-            multi[g.target] = true;
+        if (g.target == -1) {
+            // sos gag - hits all
+            for (size_t i = 0; i < damages.size(); ++i) {
+                if (damages[i]) {
+                    multi[i] = true;
+                }
+                damages[i] += g.prestiged ? ceil(g.damage * 1.15) : g.damage;
+            }
+            sos = true;
+        } else {
+            // single target gag
+            // obtain first hit target for sos combo
+            if (targ == -1) {
+                targ = g.target;
+            }
+            if (damages[g.target]) {
+                multi[g.target] = true;
+            }
+            // accumulate raw damage
+            damages[g.target] += g.prestiged ? ceil(g.damage * 1.15) : g.damage;
         }
-        // accumulate raw damage
-        damages[g.target] += g.prestiged ? g.damage*1.15 : g.damage;
     }
     // damage and print effect
     cout << THROWN << "Throw" << rang::style::reset << "\t";
@@ -535,7 +588,9 @@ void Battle::throw_turn(vector<Gag> throws) {
                 cog.hit(ceil(damages[i] * 0.5));
                 cog.unlure();
             }
-            if (multi[i]) {
+            if (sos && targ != -1) {
+                cog.hit(ceil(damages[targ] * 0.2));
+            } else if (multi[i]) {
                 // combo bonus
                 cog.hit(ceil(damages[i] * 0.2));
             }
@@ -550,10 +605,26 @@ void Battle::throw_turn(vector<Gag> throws) {
 void Battle::drop_turn(vector<Gag> drops) {
     vector<int> damages(c.getSize(), 0);
     vector<int> multi(c.getSize(), 0);
+    int targ = -1;
+    bool sos = false;
     for (Gag g : drops) {
-        // accumulate raw damage
-        damages[g.target] += g.damage;
-        multi[g.target]++;
+        if (g.target == -1) {
+            // sos gag - hits all
+            for (size_t i = 0; i < damages.size(); ++i) {
+                damages[i] += g.damage;
+                ++multi[i];
+            }
+            sos = true;
+        } else {
+            // single target gag
+            // obtain first hit target for sos combo
+            if (targ == -1) {
+                targ = g.target;
+            }
+            // accumulate raw damage
+            damages[g.target] += g.damage;
+            ++multi[g.target];
+        }
     }
     // damage and print effect
     cout << DROPPED << "Drop" << rang::style::reset << "\t";
@@ -561,7 +632,11 @@ void Battle::drop_turn(vector<Gag> drops) {
         Cog& cog = c.getCog(i);
         if (damages[i] && !cog.getLured()) {
             cog.hit(damages[i]);
-            if (multi[i] > 1) {
+            if (sos && targ != -1) {
+                // if sos + another drop, all cogs get hit with combo damage from first cog
+                // if just sos, no bonus damage
+                cog.hit(ceil(damages[targ] * (multi[targ] + 1) / 10.0));
+            } else if (multi[i] > 1) {
                 // combo bonus
                 cog.hit(ceil(damages[i] * (multi[i] + 1) / 10.0));
             }

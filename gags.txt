@@ -62,3 +62,28 @@ weight 80 .50
 safe 125 .50
 boulder 180 .50
 piano 220 .50
+chuckle 78
+don 95
+flippy 150
+will 140
+penny 220
+clara 240
+stinkyned 4
+nancy 5
+oldman 6
+barbara 40
+sonata 60
+moe 85
+sid 56
+sanjay 80
+sharky 115
+dentist 45
+electra 70
+nat 85
+cleff 75
+cindy 110
+pierce 145
+ned 125
+franz 180
+bessie 220
+rain 20

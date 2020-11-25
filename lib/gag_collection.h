@@ -1,6 +1,7 @@
 #ifndef GAG_COLLECTION_H
 #define GAG_COLLECTION_H
 
+#include <set>
 #include <stdlib.h>
 #include <string>
 #include <map>
@@ -34,9 +35,11 @@ class GagCollection {
     public:
         static GagCollection read(const std::string& file_path);
         bool contains(std::string name) const { return gagmap.find(name) != gagmap.end(); }
+        bool isSOS(std::string name) const { return sosset.find(name) != sosset.end(); }
         const Gag& get(std::string name) { return gagmap[name]; }
     private:
         std::map<std::string, Gag> gagmap;
+        std::set<std::string> sosset;
 };
 
 #endif
