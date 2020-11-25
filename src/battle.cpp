@@ -557,7 +557,8 @@ void Battle::throw_turn(vector<Gag> throws) {
                 if (damages[i]) {
                     multi[i] = true;
                 }
-                damages[i] += g.prestiged ? ceil(g.damage * 1.15) : g.damage;
+                damages[i] += g.damage;
+                // damages[i] += g.prestiged ? ceil(g.damage * 1.15) : g.damage;
             }
             sos = true;
         } else {
@@ -612,7 +613,7 @@ void Battle::drop_turn(vector<Gag> drops) {
             // sos gag - hits all
             for (size_t i = 0; i < damages.size(); ++i) {
                 damages[i] += g.damage;
-                ++multi[i];
+                multi[i] += 10;
             }
             sos = true;
         } else {
@@ -623,7 +624,11 @@ void Battle::drop_turn(vector<Gag> drops) {
             }
             // accumulate raw damage
             damages[g.target] += g.damage;
-            ++multi[g.target];
+            if (g.prestiged) {
+                multi[g.target] += 15;
+            } else {
+                multi[g.target] += 10;
+            }
         }
     }
     // damage and print effect
@@ -635,10 +640,10 @@ void Battle::drop_turn(vector<Gag> drops) {
             if (sos && targ != -1) {
                 // if sos + another drop, all cogs get hit with combo damage from first cog
                 // if just sos, no bonus damage
-                cog.hit(ceil(damages[targ] * (multi[targ] + 1) / 10.0));
+                cog.hit(ceil(damages[targ] * (multi[targ] + 10) / 100.0));
             } else if (multi[i] > 1) {
                 // combo bonus
-                cog.hit(ceil(damages[i] * (multi[i] + 1) / 10.0));
+                cog.hit(ceil(damages[i] * (multi[i] + 10) / 100.0));
             }
             cout << ATTACKED << cog << ATTACKED << "\t\t";
         } else {
