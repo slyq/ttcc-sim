@@ -26,6 +26,12 @@ struct CrossGagComparator {
     }
 };
 
+struct OrderedGagComparator {
+    bool operator() (const Gag& first, const Gag& second) const {
+        return first.damage <= second.damage;
+    }
+};
+
 class Battle {
 public:
     Battle();

@@ -1,4 +1,6 @@
 #include "cogset.h"
+#include <algorithm>
+#include <time.h>
 
 Cogset::Cogset(std::queue<int> set) : q(set) {
     srand(time(NULL));
@@ -23,14 +25,10 @@ Cogset& Cogset::operator=(const Cogset& other) {
 }
 
 void Cogset::load() {
-    // shift right
-    for (std::vector<Cog>::iterator it = cogs.begin(); it != cogs.end(); ++it) {
-        if (it->getHP() == 0) {
-            cogs.erase(it);
-            --it;
-        }
-    }
-    if (cogs.size() != 4) { // there were some cogs not alive
+    // remove dead cogs
+    cogs.erase(std::remove_if(cogs.begin(), cogs.end(), [](Cog& c) { return c.getHP() == 0; }), cogs.end());
+    if (cogs.size() != 4) {
+        // attempt to replace dead cogs
         while (!q.empty() && cogs.size() < 4) {
             if (rand() % 100 + 1 < EXE_CHANCE) {
                 cogs.insert(cogs.begin(), Cog(q.front(), true));
@@ -43,7 +41,7 @@ void Cogset::load() {
 }
 
 Cog& Cogset::getCog(int pos) {
-    if (pos > 3) {
+    if (pos >= (int)cogs.size()) {
         throw std::invalid_argument("Out of bounds");
     }
     return cogs[pos];

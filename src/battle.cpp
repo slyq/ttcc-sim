@@ -7,6 +7,7 @@
 #include <cctype>
 #include <algorithm>
 #include <stdlib.h>
+#include <time.h>
 
 using namespace std;
 
@@ -68,7 +69,7 @@ void Battle::turn(Battle::Strategy strat) {
             } else if (strat.config == 1) {
                 sort(gagtrack.begin(), gagtrack.end(), CrossGagComparator());
             } else if (strat.config == 2) {
-                reverse(gagtrack.begin(), gagtrack.end());
+                sort(gagtrack.begin(), gagtrack.end(), OrderedGagComparator());
             }
         } else {
             sort(gagtrack.begin(), gagtrack.end(), GagComparator());
@@ -98,6 +99,16 @@ void Battle::turn(Battle::Strategy strat) {
                 default:
                     break;
             }
+        }
+        bool alldead = true;
+        for (size_t i = 0; i < c.getSize(); ++i) {
+            if (c.getCog(i).getHP() != 0) {
+                alldead = false;
+                break;
+            }
+        }
+        if (alldead) {
+            break;
         }
     }
     c.load();
@@ -247,6 +258,9 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
         }
     }
     for (size_t i = 0; i < gags.size(); ++i) {
+        if (director[i] >= (int)c.getSize()) {
+            throw invalid_argument("Invalid position!");
+        }
         gags[i].target = director[i];
     }
     Battle::Strategy strategy;
@@ -298,6 +312,9 @@ Battle::Strategy Battle::parse_gags() {
                         continue;
                     }
                 } else if (position_definition.find(target) != position_definition.end()) {
+                    if (position_definition[target] >= (int)c.getSize()) {
+                        throw invalid_argument("Invalid position!");
+                    }
                     gag.target = position_definition[target];
                 } else {
                     bool directed = false;
@@ -325,6 +342,7 @@ Battle::Strategy Battle::parse_gags() {
         gag.prestiged = pr;
         gags.push_back(gag);
     }
+    cin.ignore();
     Battle::Strategy strategy;
     strategy.gags = gags;
     strategy.config = 2;
@@ -655,7 +673,7 @@ void Battle::drop_turn(vector<Gag> drops) {
 
 void Battle::main(bool line_input) {
     string strat;
-    while (c.getSize() != 0) {
+    while (c.getSize() != 0 && strat != "END") {
         // print cogs
         cout << endl << "\t";
         for (size_t i = 0; i < c.getSize(); ++i) {
@@ -683,9 +701,6 @@ void Battle::main(bool line_input) {
                 cerr << e.what() << endl;
             }
         } while (true);
-        if (strat == "END") {
-            break;
-        }
     }
     if (c.getSize() == 0) {
         cout << "You did it!" << endl;
