@@ -1,6 +1,6 @@
 #include "battle.h"
-#include "rang.h"
 #include "colors.h"
+#include "rang.h"
 #include <stack>
 #include <string>
 

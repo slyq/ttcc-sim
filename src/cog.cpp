@@ -1,7 +1,7 @@
 #include "cog.h"
 
-#include "rang.h"
 #include "colors.h"
+#include "rang.h"
 
 Cog& Cog::operator=(const Cog& other) {
     level = other.level;
@@ -21,7 +21,7 @@ std::string Cog::getLevelName() {
     return std::to_string(level);
 }
 
-void Cog::hit(int damage) { // deal raw damage
+void Cog::hit(int damage) {  // deal raw damage
     hp -= damage;
     if (hp < 0) {
         hp = 0;
@@ -29,13 +29,10 @@ void Cog::hit(int damage) { // deal raw damage
 }
 
 std::ostream& operator<<(std::ostream& out, const Cog& cog) {
-    if (cog.lured == 2) {
-        out << PRESLURED;
-    }
-    if (cog.soaked) {
+    if (cog.soaked && cog.hp != 0) {
         out << SOAKED;
     }
-    if (cog.lured > 0) {
+    if (cog.lured > 0 && cog.hp != 0) {
         out << LURED;
     }
     if (cog.hp == 0) {
@@ -48,7 +45,10 @@ std::ostream& operator<<(std::ostream& out, const Cog& cog) {
         out << "Level " << std::to_string(cog.level) << ": " << cog.hp;
     }
     out << rang::style::reset;
-    if (cog.lured == 2) {
+    if (cog.trapped && cog.hp != 0) {
+        out << "(" << TRAPPED << cog.trapped << rang::style::reset << ")";
+    }
+    if (cog.lured == 2 && cog.hp != 0) {
         out << PRESLURED;
     }
     return out;

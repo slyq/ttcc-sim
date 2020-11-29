@@ -1,5 +1,5 @@
-#include <gag_collection.h>
 #include <fstream>
+#include <gag_collection.h>
 #include <iostream>
 
 GagCollection GagCollection::read(const std::string& file_path) {

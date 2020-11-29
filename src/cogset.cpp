@@ -1,4 +1,6 @@
 #include "cogset.h"
+
+#include "colors.h"
 #include <algorithm>
 #include <time.h>
 
@@ -6,7 +8,7 @@ Cogset::Cogset(std::queue<int> set) : q(set) {
     srand(time(NULL));
     int starting_size = rand() % 4 + 1;
     // for (int i = 3; i >= 0; --i) { // ceo
-    for (int i = 0; i < starting_size; ++i) { // other boss battles
+    for (int i = 0; i < starting_size; ++i) {  // other boss battles
         if (!q.empty()) {
             if (rand() % 100 + 1 < EXE_CHANCE) {
                 cogs.insert(cogs.begin(), Cog(q.front(), true));
@@ -45,4 +47,24 @@ Cog& Cogset::getCog(int pos) {
         throw std::invalid_argument("Out of bounds");
     }
     return cogs[pos];
+}
+
+std::ostream& operator<<(std::ostream& out, const Cogset& cogset) {
+    for (const Cog& cog : cogset.cogs) {
+        out << " " << cog << "\t\t";
+    }
+    return out;
+}
+
+void Cogset::print(std::vector<int> affected) {
+    if (affected.size() == cogs.size()) {
+        for (size_t i = 0; i < cogs.size(); ++i) {
+            if (affected[i]) {
+                std::cout << ATTACKED << cogs[i] << ATTACKED << "\t\t";
+            } else {
+                std::cout << NOTATTACKED << cogs[i] << NOTATTACKED << "\t\t";
+            }
+        }
+    }
+    std::cout << std::endl;
 }

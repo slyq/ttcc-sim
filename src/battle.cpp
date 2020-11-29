@@ -1,24 +1,25 @@
 #include "battle.h"
-#include "rang.h"
+
 #include "colors.h"
-#include <sstream>
-#include <cmath>
-#include <string>
-#include <cctype>
+#include "rang.h"
 #include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <sstream>
 #include <stdlib.h>
+#include <string>
 #include <time.h>
 
 using namespace std;
 
-Battle::Battle() { // default test run Battle
+Battle::Battle() {  // default test run Battle
     srand(time(NULL));
     gc = GagCollection::read(file_path);
     queue<int> set;
     size_t min_level = 7;
     size_t max_level = 15;
     if (rand() % 2 == 0) {
-        set.push(rand() % (min_level/2) + min_level);
+        set.push(rand() % (min_level / 2) + min_level);
     }
     set.push(max_level);
     for (size_t repeat = 0; repeat < 3; ++repeat) {
@@ -36,19 +37,20 @@ Battle::Battle() { // default test run Battle
     position_definition["right"] = c.getSize() - 1;
 }
 
-Battle::Battle(queue<int> set) : c(Cogset(set)) { // pre generated set
+Battle::Battle(queue<int> set) : c(Cogset(set)) {  // pre generated set
     gc = GagCollection::read(file_path);
     position_definition["right"] = c.getSize() - 1;
 }
 
-Battle::Battle(vector<Cog> set) : c(Cogset(set)) { // pre generated set
+Battle::Battle(vector<Cog> set) : c(Cogset(set)) {  // pre generated set
     gc = GagCollection::read(file_path);
     position_definition["right"] = c.getSize() - 1;
 }
 
 void Battle::turn(Battle::Strategy strat) {
     vector<vector<Gag>> gags;
-    for (size_t i = 0; i < 8; ++i) {
+    size_t num_gagtracks = 8;
+    for (size_t i = 0; i < num_gagtracks + 1; ++i) {
         vector<Gag> gagtrack;
         gags.push_back(gagtrack);
     }
@@ -75,29 +77,36 @@ void Battle::turn(Battle::Strategy strat) {
             sort(gagtrack.begin(), gagtrack.end(), GagComparator());
         }
     }
-    for (size_t i = 0; i < gags.size(); ++i) {
+    // handle fires first
+    if (!gags[num_gagtracks].empty()) {
+        fire_turn(gags[num_gagtracks]);
+    }
+    for (size_t i = 0; i < num_gagtracks; ++i) {
         if (!gags[i].empty()) {
             switch (i) {
-                case 2:
-                    lure_turn(gags[i]);
-                    break;
-                case 3:
-                    sound_turn(gags[i]);
-                    break;
-                case 4:
-                    squirt_turn(gags[i]);
-                    break;
-                case 5:
-                    zap_turn(gags[i]);
-                    break;
-                case 6:
-                    throw_turn(gags[i]);
-                    break;
-                case 7:
-                    drop_turn(gags[i]);
-                    break;
-                default:
-                    break;
+            case 1:
+                trap_turn(gags[i]);
+                break;
+            case 2:
+                lure_turn(gags[i]);
+                break;
+            case 3:
+                sound_turn(gags[i]);
+                break;
+            case 4:
+                squirt_turn(gags[i]);
+                break;
+            case 5:
+                zap_turn(gags[i]);
+                break;
+            case 6:
+                throw_turn(gags[i]);
+                break;
+            case 7:
+                drop_turn(gags[i]);
+                break;
+            default:
+                break;
             }
         }
         bool alldead = true;
@@ -132,20 +141,20 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
         int multiplier = 1;
         size_t quickhand = 0;
         bool pres = false;
-        if (!gc.contains(parser)) { // command specifies strategy first (multiple gags or quickhand combo)
-            if (parser.size() == 1 && isdigit(parser[0])) { // multiple gag
+        if (!gc.contains(parser) && parser != "FIRE") {  // strategy first (mult gags or quickhand)
+            if (parser.size() == 1 && isdigit(parser[0])) {  // multiple gag
                 multiplier = stoi(parser);
                 ss >> parser;
                 // check if followed with gag or pres
                 if (!gc.contains(parser) && parser != "pres") {
-                    throw invalid_argument("Please supply the respective gag following your strategy.");
+                    throw invalid_argument("Please supply the respective gag following your strategy");
                 }
             }
             if (parser == "pres") {
                 pres = true;
                 ss >> parser;
             }
-            if (parser.size() == c.getSize()) { // might be a quickhand strategy callout in x and -
+            if (parser.size() == c.getSize()) {  // might be a quickhand strategy callout in x and -
                 for (size_t i = 0; i < c.getSize(); ++i) {
                     if (parser[i] == 'x') {
                         director.push_back(i);
@@ -156,73 +165,69 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
                         quickhand += 2;
                     } else if (parser[i] != '-') {
                         if (!gc.contains(parser)) {
-                            throw invalid_argument("Unrecognized quickhand strategy!");
+                            throw invalid_argument("Unrecognized quickhand strategy");
                         }
                         break;
                     }
                 }
                 // check if followed with gag, pres, or cross
                 if (quickhand && !(ss >> parser)) {
-                    throw invalid_argument("Missing arguments after quickhand strategy.");
+                    throw invalid_argument("Missing arguments after quickhand strategy");
                 }
-                if (!gc.contains(parser) && parser != "cross" && parser != "pres") {
-                    throw invalid_argument("Wrong arguments after the quickhand strategy.");
+                if (!gc.contains(parser) && parser != "cross" && parser != "pres" && parser != "FIRE") {
+                    throw invalid_argument("Wrong arguments after the quickhand strategy");
                 }
                 if (parser == "cross") {
                     config = 1;
                     ss >> parser;
                 }
-            } else if (!gc.contains(parser)) {
-                throw invalid_argument("Unrecognized gag/command!");
+            } else if (!gc.contains(parser) && parser != "FIRE") {
+                throw invalid_argument("Unrecognized gag/command");
             }
         }
-        // command should now specify a gag
-        if (quickhand) { // quickhand combo
+        // parsed should now specify a gag
+        if (quickhand) {  // quickhand combo
             for (size_t i = 0; i < quickhand; ++i) {
                 bool t_pres = false;
-                if (pres) {
-                    // (pres [quickhand]) --> everything following is pres
-                    if (gc.contains(parser)) {
-                        Gag g = gc.get(parser);
-                        g.prestiged = true;
-                        gags.push_back(g);
-                        if (i != quickhand - 1) {
-                            ss >> parser;
-                        }
-                    } else {
-                        throw invalid_argument("Unrecognized gag following quickhand strat!");
-                    }
+                if (parser == "FIRE") {
+                    Gag fire;
+                    fire.kind = GagKind::FIRE;
+                    gags.push_back(fire);
                 } else {
                     if (parser == "pres") {
-                        // ([quickhand] pres [gag]) --> only next is determined pres
                         t_pres = true;
                         ss >> parser;
                     }
                     if (gc.contains(parser)) {
-                        Gag g = gc.get(parser);
-                        g.prestiged = t_pres;
-                        gags.push_back(g);
-                        if (i != quickhand - 1) {
-                            ss >> parser;
-                        }
+                        Gag gagchoice = gc.get(parser);
+                        gagchoice.prestiged = pres || t_pres;
+                        gags.push_back(gagchoice);
                     } else {
-                        throw invalid_argument("Unrecognized gag following quickhand strat!");
+                        throw invalid_argument("Unrecognized gag following quickhand strat");
                     }
-                    t_pres = false;
+                }
+                if (i != quickhand - 1) {
+                    ss >> parser;
                 }
             }
             pres = false;
-        } else { // parse gag, then the target following it
+        } else {  // parse gag, then the target following it
             if (parser == "pres") {
                 pres = true;
                 ss >> parser;
             }
-            Gag g = gc.get(parser);
-            g.prestiged = pres;
+            Gag gagchoice;
+            if (parser != "FIRE") {
+                gagchoice = gc.get(parser);
+            } else {
+                gagchoice.kind = GagKind::FIRE;
+            }
+            gagchoice.prestiged = pres;
 
-            if ((g.kind == GagKind::LURE && g.name.find("dollar") == string::npos) || g.kind == GagKind::SOUND) {
+            if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos)
+                || gagchoice.kind == GagKind::SOUND) {
                 for (int i = 0; i < multiplier; ++i) {
-                    director.push_back(-1); // placeholder for multi hit (lure/sound)
+                    director.push_back(-1);  // placeholder for multi hit (lure/sound)
                 }
             } else if (gc.isSOS(parser)) {
                 // sos
@@ -232,11 +237,24 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
                 director.push_back(0);
             } else {
                 ss >> parser;
-                if (position_definition.find(parser) != position_definition.end()) { // word position check
+                if (parser[0] == '!') {
+                    try {
+                        int target = stoi(parser.substr(parser.find("!") + 1));
+                        if (target < 0 || target >= (int)c.getSize()) {
+                            throw invalid_argument("out of bounds");
+                        }
+                        director.push_back(target);
+                    } catch (const invalid_argument& e) {
+                        throw invalid_argument("Invalid index for " + gagchoice.name);
+                    }
+                } else if (position_definition.find(parser) != position_definition.end()) {  // word position check
+                    if (position_definition[parser] >= (int)c.getSize()) {
+                        throw invalid_argument("Invalid position for " + gagchoice.name);
+                    }
                     for (int i = 0; i < multiplier; ++i) {
                         director.push_back(position_definition[parser]);
                     }
-                } else { // cog level position check
+                } else {  // cog level position check
                     bool directed = false;
                     for (size_t i = 0; i < c.getSize(); i++) {
                         if (c.getCog(i).getLevelName() == parser) {
@@ -248,18 +266,50 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
                         }
                     }
                     if (!directed) {
-                        throw invalid_argument("Position not supplied for " + g.name);
+                        throw invalid_argument("Position not supplied for " + gagchoice.name);
                     }
                 }
             }
             for (int i = 0; i < multiplier; ++i) {
-                gags.push_back(g);
+                gags.push_back(gagchoice);
             }
         }
     }
+    // check for invalid gag usage & use fires
+    size_t trapcount = 0;
+    size_t lurecount = 0;
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        if (c.getCog(i).getTrap()) {
+            ++trapcount;
+        }
+        if (c.getCog(i).getLured()) {
+            ++lurecount;
+        }
+    }
     for (size_t i = 0; i < gags.size(); ++i) {
-        if (director[i] >= (int)c.getSize()) {
-            throw invalid_argument("Invalid position!");
+        if (gags[i].kind == GagKind::TRAP) {
+            if (director[i] == -1) {
+                // note: the checks below deviate from the true game experience, which is buggy with trap SOS
+                if (trapcount == c.getSize()) {
+                    throw invalid_argument("Cannot place an SOS trap when all cogs are already trapped");
+                }
+                if (lurecount == c.getSize()) {
+                    throw invalid_argument("Cannot place an SOS trap when all cogs are already lured");
+                }
+            } else {
+                if (c.getCog(director[i]).getTrap()) {
+                    throw invalid_argument("Cannot trap an already trapped cog");
+                }
+                if (c.getCog(director[i]).getLured()) {
+                    throw invalid_argument("Cannot trap an already lured cog");
+                }
+            }
+        } else if (gags[i].kind == GagKind::LURE) {
+            if (director[i] == -1 && lurecount == c.getSize()) {
+                throw invalid_argument("Cannot group lure when all cogs are already lured");
+            } else if (director[i] != -1 && c.getCog(director[i]).getLured()) {
+                throw invalid_argument("Cannot lure an already lured cog");
+            }
         }
         gags[i].target = director[i];
     }
@@ -271,9 +321,20 @@ Battle::Strategy Battle::parse_oneliner(string strat) {
 
 Battle::Strategy Battle::parse_gags() {
     vector<Gag> gags;
+    // invalid gag usage check
+    size_t trapcount = 0;
+    size_t lurecount = 0;
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        if (c.getCog(i).getTrap()) {
+            ++trapcount;
+        }
+        if (c.getCog(i).getLured()) {
+            ++lurecount;
+        }
+    }
     size_t numtoons = 4;
     for (size_t i = 1; i <= numtoons; ++i) {
-        Gag gag;
+        Gag gagchoice;
         string gag_name;
         string target;
         bool pr = false;
@@ -295,52 +356,91 @@ Battle::Strategy Battle::parse_gags() {
         }
         if (gag_name != "PASS") {
             if (gag_name != "FIRE") {
-                gag = gc.get(gag_name);
+                gagchoice = gc.get(gag_name);
+            } else {
+                gagchoice.kind = GagKind::FIRE;
             }
-            if ((gag.kind == GagKind::LURE && gag.name.find("dollar") == string::npos) || gag.kind == GagKind::SOUND) {
-                gag.target = -1;
+            if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos)
+                || gagchoice.kind == GagKind::SOUND || gc.isSOS(gag_name)) {
+                gagchoice.target = -1;
+            } else if (c.getSize() == 1) {
+                // single target, automatic
+                gagchoice.target = 0;
             } else {
                 // parse target
                 cin >> target;
                 if (target[0] == '!') {
                     try {
-                        gag.target = stoi(target.substr(target.find("!") + 1));
-                        if (gag.target < 0 || gag.target >= (int)c.getSize()) throw invalid_argument("out of bounds");
+                        gagchoice.target = stoi(target.substr(target.find("!") + 1));
+                        if (gagchoice.target < 0 || gagchoice.target >= (int)c.getSize())
+                            throw invalid_argument("out of bounds");
                     } catch (const invalid_argument& e) {
-                        cerr << "Invalid index!" << endl;
+                        cerr << "Invalid index" << endl;
                         --i;
                         continue;
                     }
                 } else if (position_definition.find(target) != position_definition.end()) {
                     if (position_definition[target] >= (int)c.getSize()) {
-                        throw invalid_argument("Invalid position!");
+                        cerr << "Invalid position" << endl;
+                        --i;
+                        continue;
                     }
-                    gag.target = position_definition[target];
+                    gagchoice.target = position_definition[target];
                 } else {
                     bool directed = false;
                     for (size_t i = 0; i < c.getSize(); i++) {
                         if (c.getCog(i).getLevelName() == target) {
-                            gag.target = i;
+                            gagchoice.target = i;
                             directed = true;
                             break;
                         }
                     }
                     if (!directed) {
-                        cerr << "Unrecognized target!" << endl;
+                        cerr << "Unrecognized target" << endl;
                         --i;
                         continue;
                     }
                 }
-                if (gag_name == "FIRE") {
-                    // FIRE is a "pass" gag that damages cogs before the turn parses
-                    c.getCog(gag.target).hit(c.getCog(gag.target).getHP());
-                }
             }
         } else {
-            gag.target = -1;
+            gagchoice.target = -1;
         }
-        gag.prestiged = pr;
-        gags.push_back(gag);
+        // check for invalid gag usage
+        bool usage_error = false;
+        if (gagchoice.kind == GagKind::TRAP) {
+            if (gagchoice.target == -1) {
+                // note: the checks below deviate from the true game experience, which is buggy with trap SOS
+                if (trapcount == c.getSize()) {
+                    cerr << "Cannot place an SOS trap when all cogs are already trapped" << endl;
+                    usage_error = true;
+                } else if (lurecount == c.getSize()) {
+                    cerr << "Cannot place an SOS trap when all cogs are already lured" << endl;
+                    usage_error = true;
+                }
+            } else {
+                if (c.getCog(gagchoice.target).getTrap()) {
+                    cerr << "Cannot trap an already trapped cog" << endl;
+                    usage_error = true;
+                } else if (c.getCog(gagchoice.target).getLured()) {
+                    cerr << "Cannot trap an already lured cog" << endl;
+                    usage_error = true;
+                }
+            }
+        } else if (gagchoice.kind == GagKind::LURE) {
+            if (gagchoice.target == -1 && lurecount == c.getSize()) {
+                cerr << "Cannot group lure when all cogs are already lured" << endl;
+                usage_error = true;
+            } else if (gagchoice.target != -1 && c.getCog(gagchoice.target).getLured()) {
+                cerr << "Cannot lure an already lured cog" << endl;
+                usage_error = true;
+            }
+        }
+        if (usage_error) {
+            --i;
+            continue;
+        }
+        gagchoice.prestiged = pr;
+        gags.push_back(gagchoice);
     }
     cin.ignore();
     Battle::Strategy strategy;
@@ -349,42 +449,102 @@ Battle::Strategy Battle::parse_gags() {
     return strategy;
 }
 
+void Battle::fire_turn(vector<Gag> fires) {
+    vector<int> fired(c.getSize(), 0);
+    for (Gag g : fires) {
+        c.getCog(g.target).hit(c.getCog(g.target).getHP());
+        fired[g.target] = 1;
+    }
+    cout << "Fire" << rang::style::reset << "\t";
+    c.print(fired);
+}
+
+void Battle::trap_turn(vector<Gag> traps) {
+    vector<int> setups(c.getSize(), 0);
+    for (Gag g : traps) {
+        if (g.target == -1) {
+            // sos gag - hits all
+            for (size_t i = 0; i < setups.size(); ++i) {
+                if (setups[i]) {
+                    // trap conflict - all traps become null
+                    for (size_t i = 0; i < setups.size(); ++i) {
+                        setups[i] = -1;
+                    }
+                    break;
+                } else if (c.getCog(i).getTrap() || c.getCog(i).getLured()) {
+                    setups[i] = -1;
+                } else if (c.getCog(i).getHP() != 0) {
+                    setups[i] = g.prestiged ? g.damage + c.getCog(i).getLevel() * 3 : g.damage;
+                }
+            }
+        } else if (c.getCog(g.target).getHP() != 0) {
+            if (setups[g.target] || c.getCog(g.target).getTrap() || c.getCog(g.target).getLured()) {
+                // trap conflict - all traps targeting this cog become null
+                setups[g.target] = -1;
+            } else {
+                setups[g.target] = g.prestiged ? g.damage + c.getCog(g.target).getLevel() * 3 : g.damage;
+            }
+        }
+    }
+    // set traps
+    for (size_t i = 0; i < c.getSize(); ++i) {
+        Cog& cog = c.getCog(i);
+        if (setups[i] > 0) {
+            cog.setTrap(setups[i]);
+        }
+    }
+    cout << TRAPPED << "Trap" << rang::style::reset << "\t";
+    c.print(setups);
+}
+
 void Battle::lure_turn(vector<Gag> lures) {
-    vector<int> affected;
+    vector<int> lured(c.getSize(), 0);
     for (Gag g : lures) {
         if (g.target == -1) {
             // group lure
             for (size_t i = 0; i < c.getSize(); ++i) {
-                if (!c.getCog(i).getLured()) {
-                    if (g.prestiged) {
-                        c.getCog(i).setLured(2);
-                    } else {
-                        c.getCog(i).setLured(1);
+                Cog& cog = c.getCog(i);
+                if (c.getCog(i).getHP() != 0) {
+                    if (cog.getTrap()) {
+                        lured[i] = -1 * cog.getTrap();
+                    } else if (!cog.getLured()) {
+                        if (g.prestiged) {
+                            lured[i] = 2;
+                        } else if (!lured[i]) {
+                            lured[i] = 1;
+                        }
                     }
-                    affected.push_back(i);
                 }
             }
-            break;
-        } else {
-            // single lure
-            if (g.prestiged) {
-                c.getCog(g.target).setLured(2);
-            } else {
-                c.getCog(g.target).setLured(1);
+        } else if (c.getCog(g.target).getHP() != 0) {
+            Cog& cog = c.getCog(g.target);
+            if (cog.getTrap()) {
+                lured[g.target] = -1 * cog.getTrap();
+            } else if (!cog.getLured()) {
+                if (g.prestiged) {
+                    lured[g.target] = 2;
+                } else if (!lured[g.target]) {
+                    lured[g.target] = 1;
+                }
             }
-            affected.push_back(g.target);
         }
     }
-    // print effect
-    cout << LURED << "Lure" << rang::style::reset << "\t";
+    // apply lure
     for (size_t i = 0; i < c.getSize(); ++i) {
-        if (find(affected.begin(), affected.end(), i) != affected.end()) {
-            cout << ATTACKED << c.getCog(i) << ATTACKED << "\t\t";
-        } else {
-            cout << NOTATTACKED << c.getCog(i) << NOTATTACKED << "\t\t";
+        Cog& cog = c.getCog(i);
+        if (lured[i]) {
+            if (lured[i] > 0) {
+                // lure
+                cog.setLured(lured[i]);
+            } else {
+                // lure into a trap - take damage, remove trap, don't lure
+                cog.hit(-1 * lured[i]);
+                cog.untrap();
+            }
         }
     }
-    cout << endl;
+    cout << LURED << "Lure" << rang::style::reset << "\t";
+    c.print(lured);
 }
 
 void Battle::sound_turn(vector<Gag> sounds) {
@@ -402,7 +562,7 @@ void Battle::sound_turn(vector<Gag> sounds) {
         damage += g.damage;
         // apply prestige bonus
         if (g.prestiged) {
-            damage += ceil(maxlvl/2);
+            damage += ceil(maxlvl / 2);
         }
     }
     // apply multiple gag bonus
@@ -410,7 +570,7 @@ void Battle::sound_turn(vector<Gag> sounds) {
         damage += ceil(damage * 0.2);
     }
     // damage and print effect
-    cout << "Sound\t";
+
     for (size_t i = 0; i < c.getSize(); ++i) {
         Cog& cog = c.getCog(i);
         // unlure
@@ -418,9 +578,10 @@ void Battle::sound_turn(vector<Gag> sounds) {
             cog.unlure();
         }
         cog.hit(damage);
-        cout << ATTACKED << cog << ATTACKED << "\t\t";
     }
-    cout << endl;
+    vector<int> affected(c.getSize(), 1);
+    cout << "Sound\t";
+    c.print(affected);
 }
 
 void Battle::squirt_turn(vector<Gag> squirts) {
@@ -432,14 +593,16 @@ void Battle::squirt_turn(vector<Gag> squirts) {
         if (g.target == -1) {
             // sos gag - hits all
             for (size_t i = 0; i < damages.size(); ++i) {
-                if (damages[i]) {
-                    multi[i] = true;
+                if (c.getCog(i).getHP() != 0) {
+                    if (damages[i]) {
+                        multi[i] = true;
+                    }
+                    damages[i] += g.damage;
+                    c.getCog(i).soak();
                 }
-                damages[i] += g.damage;
-                c.getCog(i).soak();
             }
             sos = true;
-        } else {
+        } else if (c.getCog(g.target).getHP() != 0) {
             // single target gag
             // obtain first hit target for sos combo
             if (targ == -1) {
@@ -452,18 +615,17 @@ void Battle::squirt_turn(vector<Gag> squirts) {
             damages[g.target] += g.damage;
             // handle soaking
             if (g.prestiged) {
-                if (g.target > 0) {
-                    c.getCog(g.target-1).soak();
+                if (g.target - 1 >= 0 && c.getCog(g.target - 1).getHP() != 0) {
+                    c.getCog(g.target - 1).soak();
                 }
-                if (g.target < (int)c.getSize() - 1) {
-                    c.getCog(g.target+1).soak();
+                if (g.target + 1 < (int)c.getSize() && c.getCog(g.target + 1).getHP() != 0) {
+                    c.getCog(g.target + 1).soak();
                 }
             }
             c.getCog(g.target).soak();
         }
     }
     // damage and print effect
-    cout << SOAKED << "Squirt" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
         Cog& cog = c.getCog(i);
         if (damages[i]) {
@@ -483,12 +645,10 @@ void Battle::squirt_turn(vector<Gag> squirts) {
                 // combo bonus
                 cog.hit(ceil(damages[i] * 0.2));
             }
-            cout << ATTACKED << cog << ATTACKED << "\t\t";
-        } else {
-            cout << NOTATTACKED << cog << NOTATTACKED << "\t\t";
         }
     }
-    cout << endl;
+    cout << SOAKED << "Squirt" << rang::style::reset << "\t";
+    c.print(damages);
 }
 
 void Battle::zap_turn(vector<Gag> zaps) {
@@ -503,7 +663,7 @@ void Battle::zap_turn(vector<Gag> zaps) {
     for (Gag g : zaps) {
         if (g.target == -1) {
             for (size_t i = 0; i < damages.size(); ++i) {
-                damages[i] += g.damage*3;
+                damages[i] += g.damage * 3;
             }
             // TODO: double check how sos zap + regular zap work
             continue;
@@ -514,23 +674,25 @@ void Battle::zap_turn(vector<Gag> zaps) {
         size_t jump_count = 0;
         int examine_count = 0;
         int targ = g.target;
-        char dir = -1; // -1 left, 1 right
-        int lasttarg = -1; // keeps track of last cog hit (zap cannot jump more than two spaces)
+        char dir = -1;      // -1 left, 1 right
+        int lasttarg = -1;  // keeps track of last cog hit (zap cannot jump more than two spaces)
         float dropoff = g.prestiged ? 0.5 : 0.75;
         while (jump_count < 3 && examine_count < (int)c.getSize() && (lasttarg == -1 || abs(targ - lasttarg) <= 2)) {
             // keep checking until jump count limit reached, all cogs examined, or zap fails to jump
-            if (jump_count == 0 && !soaked[targ]) { // starting on a dry cog
-                damages[targ] += g.damage;
+            if (jump_count == 0 && (!soaked[targ] || c.getCog(targ).getHP() == 0)) {  // starting on a dry/dead cog
+                if (c.getCog(targ).getHP() != 0) {
+                    damages[targ] += g.damage;
+                }
                 break;
             }
-            if ((jump_count == 0 || !jumped[targ]) && soaked[targ]) { // zappable cog
-                damages[targ] += ceil((3 - jump_count*dropoff) * g.damage);
+            if ((jump_count == 0 || !jumped[targ]) && soaked[targ] && c.getCog(targ).getHP() != 0) {  // zappable cog
+                damages[targ] += ceil((3 - jump_count * dropoff) * g.damage);
                 jumped[targ] = true;
                 examined[targ] = true;
                 lasttarg = targ;
                 ++jump_count;
                 ++examine_count;
-            } else if (targ != g.target && (jumped[targ] || !soaked[targ]) && !examined[targ]) { // exhausted cog
+            } else if ((c.getCog(targ).getHP() == 0 || (targ != g.target && (jumped[targ] || !soaked[targ]))) && !examined[targ]) {  // exhausted cog
                 ++examine_count;
                 examined[targ] = true;
             }
@@ -546,7 +708,7 @@ void Battle::zap_turn(vector<Gag> zaps) {
         jumped[g.target] = false;
     }
     // damage and print effect
-    cout << ZAPPED << "Zap" << rang::style::reset << "\t";
+
     for (size_t i = 0; i < c.getSize(); ++i) {
         // cout << damages[i] << endl;
         Cog& cog = c.getCog(i);
@@ -555,12 +717,10 @@ void Battle::zap_turn(vector<Gag> zaps) {
             if (cog.getLured()) {
                 cog.unlure();
             }
-            cout << ATTACKED << cog << ATTACKED << "\t\t";
-        } else {
-            cout << NOTATTACKED << cog << NOTATTACKED << "\t\t";
         }
     }
-    cout << endl;
+    cout << ZAPPED << "Zap" << rang::style::reset << "\t";
+    c.print(damages);
 }
 
 void Battle::throw_turn(vector<Gag> throws) {
@@ -572,14 +732,16 @@ void Battle::throw_turn(vector<Gag> throws) {
         if (g.target == -1) {
             // sos gag - hits all
             for (size_t i = 0; i < damages.size(); ++i) {
-                if (damages[i]) {
-                    multi[i] = true;
+                if (c.getCog(i).getHP() != 0) {
+                    if (damages[i]) {
+                        multi[i] = true;
+                    }
+                    damages[i] += g.damage;
                 }
-                damages[i] += g.damage;
                 // damages[i] += g.prestiged ? ceil(g.damage * 1.15) : g.damage;
             }
             sos = true;
-        } else {
+        } else if (c.getCog(g.target).getHP() != 0) {
             // single target gag
             // obtain first hit target for sos combo
             if (targ == -1) {
@@ -593,7 +755,6 @@ void Battle::throw_turn(vector<Gag> throws) {
         }
     }
     // damage and print effect
-    cout << THROWN << "Throw" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
         Cog& cog = c.getCog(i);
         if (damages[i]) {
@@ -613,12 +774,10 @@ void Battle::throw_turn(vector<Gag> throws) {
                 // combo bonus
                 cog.hit(ceil(damages[i] * 0.2));
             }
-            cout << ATTACKED << cog << ATTACKED << "\t\t";
-        } else {
-            cout << NOTATTACKED << cog << NOTATTACKED << "\t\t";
         }
     }
-    cout << endl;
+    cout << THROWN << "Throw" << rang::style::reset << "\t";
+    c.print(damages);
 }
 
 void Battle::drop_turn(vector<Gag> drops) {
@@ -630,11 +789,13 @@ void Battle::drop_turn(vector<Gag> drops) {
         if (g.target == -1) {
             // sos gag - hits all
             for (size_t i = 0; i < damages.size(); ++i) {
-                damages[i] += g.damage;
-                multi[i] += 10;
+                if (c.getCog(i).getHP() != 0) {
+                    damages[i] += g.damage;
+                    multi[i] += 10;
+                }
             }
             sos = true;
-        } else {
+        } else if (c.getCog(g.target).getHP() != 0) {
             // single target gag
             // obtain first hit target for sos combo
             if (targ == -1) {
@@ -650,7 +811,6 @@ void Battle::drop_turn(vector<Gag> drops) {
         }
     }
     // damage and print effect
-    cout << DROPPED << "Drop" << rang::style::reset << "\t";
     for (size_t i = 0; i < c.getSize(); ++i) {
         Cog& cog = c.getCog(i);
         if (damages[i] && !cog.getLured()) {
@@ -663,28 +823,22 @@ void Battle::drop_turn(vector<Gag> drops) {
                 // combo bonus
                 cog.hit(ceil(damages[i] * (multi[i] + 10) / 100.0));
             }
-            cout << ATTACKED << cog << ATTACKED << "\t\t";
-        } else {
-            cout << NOTATTACKED << cog << NOTATTACKED << "\t\t";
         }
     }
-    cout << endl;
+    cout << DROPPED << "Drop" << rang::style::reset << "\t";
+    c.print(damages);
 }
 
 void Battle::main(bool line_input) {
     string strat;
     while (c.getSize() != 0 && strat != "END") {
         // print cogs
-        cout << endl << "\t";
-        for (size_t i = 0; i < c.getSize(); ++i) {
-            cout << " " << c.getCog(i) << "\t\t";
-        }
-        cout << endl << endl;
+        cout << endl << "\t" << c << endl << endl;
         do {
             // get player strategy
             try {
                 Battle::Strategy strategy;
-                if (line_input) { // one liner
+                if (line_input) {  // one liner
                     cout << PROMPT << "Your strategy: " << rang::style::reset;
                     getline(cin, strat);
                     if (strat == "END") {
@@ -692,7 +846,7 @@ void Battle::main(bool line_input) {
                         break;
                     }
                     strategy = parse_oneliner(strat);
-                } else { // individual toon directing
+                } else {  // individual toon directing
                     strategy = parse_gags();
                 }
                 turn(strategy);
