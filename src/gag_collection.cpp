@@ -16,7 +16,6 @@ GagCollection GagCollection::read(const std::string& file_path) {
     for (size_t i = 0; i < 8; ++i) {
         for (size_t j = 0; j < 8; ++j) {
             file >> name >> damage >> accuracy;
-            // bool sos = j > 7;
             gc.gagmap[name] = Gag((GagKind)i, name, damage, accuracy);
         }
     }
@@ -24,13 +23,13 @@ GagCollection GagCollection::read(const std::string& file_path) {
     for (size_t i = 0; i < 8; ++i) {
         for (size_t j = 0; j < 3; ++j) {
             file >> name >> damage;
-            gc.gagmap[name] = Gag((GagKind)i, name, damage, 1.00);
+            gc.gagmap[name] = Gag((GagKind)i, name, damage, 100);
             gc.sosset.insert(name);
         }
     }
     // rain
     file >> name >> damage;
-    gc.gagmap[name] = Gag(GagKind::DROP, name, damage, 1.00);
+    gc.gagmap[name] = Gag(GagKind::DROP, name, damage, 100);
     gc.sosset.insert(name);
     return gc;
 }

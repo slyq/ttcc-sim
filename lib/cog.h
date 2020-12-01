@@ -7,7 +7,7 @@
 class Cog {
 public:
     Cog() : level(0), hp(0), trapped(0), lured(0), soaked(false), executive(false) {}
-    Cog(int lvl) : level(lvl), hp((lvl + 1) * (lvl + 2)), trapped(0), lured(0), soaked(false), executive(false) {}
+    Cog(int lvl) : Cog(lvl, false) {}
     Cog(int lvl, bool exe)
             : level(lvl),
               hp((lvl + 1) * (lvl + 2) * (exe ? 1.5 : 1)),
@@ -15,6 +15,7 @@ public:
               lured(0),
               soaked(false),
               executive(exe) {}
+    Cog(std::string lvl) : Cog(std::stoi(lvl.substr(0, lvl.find("."))), lvl.find(".exe") != std::string::npos) {}
     ~Cog() {}
     Cog& operator=(const Cog& other);
     int getHP() { return hp; }

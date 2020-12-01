@@ -13,7 +13,7 @@ public:
     Cogset(std::vector<Cog> set) : cogs(set) {}
     Cogset& operator=(const Cogset& other);
     void load();
-    size_t getSize() { return cogs.size(); }
+    size_t getSize() const { return cogs.size(); }
     Cog& getCog(int pos);
     friend std::ostream& operator<<(std::ostream& out, const Cogset& cogset);
     void print(std::vector<int> affected);

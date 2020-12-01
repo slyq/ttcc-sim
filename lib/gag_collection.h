@@ -24,7 +24,7 @@ struct Gag {
     GagKind kind;
     std::string name;
     unsigned short damage;
-    float accuracy;
+    int accuracy;
     int target;
     bool prestiged;
 

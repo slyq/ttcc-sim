@@ -8,7 +8,7 @@ The command is parsed left to right, but gags will be automatically applied in t
 
 The command order for each gag matters. You can move around blocks of gag commands any way you like, however.
 
-For one-liners, you can use a quickhand strategy which attempts to mimic strategies said via chat
+For one-liners, you can use a quickhand strategy for efficieny
 
 ### Quickhand strategy format:
 - the quickhand strategy consists of only '-', 'x', or 'X'
@@ -17,12 +17,12 @@ For one-liners, you can use a quickhand strategy which attempts to mimic strateg
     - 'X' specifies that the respective cog is targeted twice
     - should be the same length as the cog set
 - the quickhand strategy must be followed by the gags relevant to it in the format `[pres] <gag>`
-    - gags are parsed left to right (ex: -X-x will assume the next two gags target mid-left and the third gag targets right)
+    - gags are parsed left to right
+    - example 1: if x-x- or -X-- is specified, two valid gags must follow it
+    - example 2: -X-x will assume the next two gags target mid-left and the third gag targets right
 - if preceded by "pres", all gags that are part of the quickhand strategy are prestiged
     - note: if followed by "pres", the prestige only applies to the gag following it
 - if followed by "cross", zap gags will cross
-
-For example, if x-x- or -X-- is specified, two valid gags must follow it.
 
 ## Command format for individual commands:
 `[pres] <gag> <target>`
@@ -31,7 +31,7 @@ Gags will be automatically applied in the conventional order.
 
 ## Special notes about commands
 
-Do not specify a target for group lure and sound.
+Do not specify a target for group lure, sound, or SOS.
 
 You do not need to specify a target for a cog set of one cog.
 
@@ -48,4 +48,5 @@ For cog sets larger than 1, the specified target can be a 0-indexed position (pr
 - PASS = pass (only for individual commands)
 - FIRE = fire a cog
 - DELETE/FIREALL/SKIP = fire all cogs (only for one liners)
-- END = quit the program
+- UNDO = undo last toon's choice (only for one liners)
+- END = quit the program (only for individual commands)
