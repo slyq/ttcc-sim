@@ -86,7 +86,7 @@ void Battle::turn(Battle::Strategy strat) {
     if (!gags[num_gagtracks].empty()) {
         fireTurn(gags[num_gagtracks]);
     }
-    for (size_t i = 0; i < num_gagtracks; ++i) {
+    for (size_t i = 0; (i < num_gagtracks && !cogsetDead()); ++i) {
         if (!gags[i].empty()) {
             switch (i) {
             case 1:
@@ -111,9 +111,6 @@ void Battle::turn(Battle::Strategy strat) {
                 dropTurn(gags[i]);
                 break;
             default:
-                break;
-            }
-            if (cogsetDead()) {
                 break;
             }
         }
@@ -141,12 +138,6 @@ Battle::Strategy Battle::parseOneliner(string strat) {
     size_t config = 0;
     // each loop parses a gag+target or a multi zap combo
     while (ss >> parser) {
-        if (parser == "SKIP" || parser == "DELETE" || parser == "FIREALL") {
-            for (size_t i = 0; i < c.getSize(); ++i) {
-                c.getCog(i).hit(c.getCog(i).getHP());
-            }
-            break;
-        }
         int multiplier = 1;
         size_t quickhand = 0;
         bool pres = false;
@@ -174,7 +165,7 @@ Battle::Strategy Battle::parseOneliner(string strat) {
                         quickhand += 2;
                     } else if (parser[i] != '-') {
                         if (!gc.contains(parser)) {
-                            throw invalid_argument("Unrecognized quickhand strategy");
+                            throw invalid_argument("Unrecognized quickhand strategy " + parser);
                         }
                         break;
                     }
@@ -191,7 +182,7 @@ Battle::Strategy Battle::parseOneliner(string strat) {
                     ss >> parser;
                 }
             } else if (!gc.contains(parser) && parser != "FIRE") {
-                throw invalid_argument("Unrecognized gag/command");
+                throw invalid_argument("Unrecognized gag/command " + parser);
             }
         }
         // parsed should now specify a gag
@@ -230,6 +221,7 @@ Battle::Strategy Battle::parseOneliner(string strat) {
                 gagchoice = gc.get(parser);
             } else {
                 gagchoice.kind = GagKind::FIRE;
+                gagchoice.damage = 0;
             }
             gagchoice.prestiged = pres;
 
@@ -296,39 +288,80 @@ Battle::Strategy Battle::parseOneliner(string strat) {
         }
     }
     for (size_t i = 0; i < gags.size(); ++i) {
-        if (gags[i].kind == GagKind::TRAP) {
-            if (director[i] == -1) {
-                // note: the checks below deviate from the true game experience, which is buggy with trap SOS
-                if (trapcount == c.getSize()) {
-                    throw invalid_argument("Cannot place an SOS trap when all cogs are already trapped");
-                }
-                if (lurecount == c.getSize()) {
-                    throw invalid_argument("Cannot place an SOS trap when all cogs are already lured");
-                }
-            } else {
-                if (c.getCog(director[i]).getTrap()) {
-                    throw invalid_argument("Cannot trap an already trapped cog");
-                }
-                if (c.getCog(director[i]).getLured()) {
-                    throw invalid_argument("Cannot trap an already lured cog");
-                }
-            }
-        } else if (gags[i].kind == GagKind::LURE) {
-            if (director[i] == -1 && lurecount == c.getSize()) {
-                throw invalid_argument("Cannot group lure when all cogs are already lured");
-            } else if (director[i] != -1 && c.getCog(director[i]).getLured()) {
-                throw invalid_argument("Cannot lure an already lured cog");
-            }
-        }
         gags[i].target = director[i];
+        gagCheck(gags[i]);
     }
     return Battle::Strategy(gags, config);
 }
 
-Battle::Strategy Battle::parseGags() {
+Gag Battle::parseGag(string command) {
     posDefinition["right"] = c.getSize() - 1;
-    vector<Gag> gags;
-    // invalid gag usage check
+    Gag gagchoice;
+    stringstream ss(command);
+    string gag_name;
+    string target;
+    bool pr = false;
+    ss >> gag_name;
+    if (gag_name == "pres") {
+        pr = true;
+        ss >> gag_name;
+    }
+    if (!gc.contains(gag_name) && gag_name != "PASS" && gag_name != "FIRE") {
+        throw invalid_argument("Unrecognized gag!");
+    }
+    if (gag_name != "PASS") {
+        if (gag_name != "FIRE") {
+            gagchoice = gc.get(gag_name);
+        } else {
+            gagchoice.kind = GagKind::FIRE;
+            gagchoice.damage = 0;
+        }
+        if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos)
+            || gagchoice.kind == GagKind::SOUND || gc.isSOS(gag_name)) {
+            gagchoice.target = -1;
+        } else if (c.getSize() == 1) {
+            // single target, automatic
+            gagchoice.target = 0;
+        } else {
+            // parse target
+            ss >> target;
+            if (target[0] == '!') {
+                try {
+                    gagchoice.target = stoi(target.substr(target.find("!") + 1));
+                    if (gagchoice.target < 0 || gagchoice.target >= (int)c.getSize())
+                        throw invalid_argument("out of bounds");
+                } catch (const invalid_argument& e) {
+                    throw invalid_argument("Invalid index");
+                }
+            } else if (posDefinition.find(target) != posDefinition.end()) {
+                if (posDefinition[target] >= (int)c.getSize()) {
+                    throw invalid_argument("Invalid position");
+                }
+                gagchoice.target = posDefinition[target];
+            } else {
+                bool directed = false;
+                for (size_t i = 0; i < c.getSize(); i++) {
+                    if (c.getCog(i).getLevelName() == target) {
+                        gagchoice.target = i;
+                        directed = true;
+                        break;
+                    }
+                }
+                if (!directed) {
+                    throw invalid_argument("Unrecognized target");
+                }
+            }
+        }
+    } else {
+        gagchoice.target = -1;
+    }
+    gagchoice.prestiged = pr;
+    // check for invalid gag usage
+    gagCheck(gagchoice);
+    return gagchoice;
+}
+
+void Battle::gagCheck(const Gag& gagchoice) {
     size_t trapcount = 0;
     size_t lurecount = 0;
     for (size_t i = 0; i < c.getSize(); ++i) {
@@ -339,121 +372,30 @@ Battle::Strategy Battle::parseGags() {
             ++lurecount;
         }
     }
-    size_t numtoons = 4;
-    size_t toonIndex = 1;
-    while (toonIndex <= numtoons) {
-        Gag gagchoice;
-        string gag_name;
-        string target;
-        bool pr = false;
-        cout << PROMPT << "Toon " << toonIndex << ": " << rang::style::reset;
-        cin >> gag_name;
-        if (gag_name == "pres") {
-            pr = true;
-            cin >> gag_name;
-        }
-        if (gag_name == "UNDO" && toonIndex > 1) {
-            gags.pop_back();
-            --toonIndex;
-            continue;
-        }
-        while (!gc.contains(gag_name) && gag_name != "PASS" && gag_name != "FIRE") {
-            cerr << "Unrecognized gag!" << endl;
-            cin.ignore();
-            cout << PROMPT << "Toon " << toonIndex << ": " << rang::style::reset;
-            cin >> gag_name;
-            if (gag_name == "pres") {
-                pr = true;
-                cin >> gag_name;
-            }
-        }
-        if (gag_name != "PASS") {
-            if (gag_name != "FIRE") {
-                gagchoice = gc.get(gag_name);
-            } else {
-                gagchoice.kind = GagKind::FIRE;
-            }
-            if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos)
-                || gagchoice.kind == GagKind::SOUND || gc.isSOS(gag_name)) {
-                gagchoice.target = -1;
-            } else if (c.getSize() == 1) {
-                // single target, automatic
-                gagchoice.target = 0;
-            } else {
-                // parse target
-                cin >> target;
-                if (target[0] == '!') {
-                    try {
-                        gagchoice.target = stoi(target.substr(target.find("!") + 1));
-                        if (gagchoice.target < 0 || gagchoice.target >= (int)c.getSize())
-                            throw invalid_argument("out of bounds");
-                    } catch (const invalid_argument& e) {
-                        cerr << "Invalid index" << endl;
-                        continue;
-                    }
-                } else if (posDefinition.find(target) != posDefinition.end()) {
-                    if (posDefinition[target] >= (int)c.getSize()) {
-                        cerr << "Invalid position" << endl;
-                        continue;
-                    }
-                    gagchoice.target = posDefinition[target];
-                } else {
-                    bool directed = false;
-                    for (size_t i = 0; i < c.getSize(); i++) {
-                        if (c.getCog(i).getLevelName() == target) {
-                            gagchoice.target = i;
-                            directed = true;
-                            break;
-                        }
-                    }
-                    if (!directed) {
-                        cerr << "Unrecognized target" << endl;
-                        continue;
-                    }
-                }
+    if (gagchoice.kind == GagKind::TRAP) {
+        if (gagchoice.target == -1) {
+            // note: the checks below deviate from the true game experience, which is buggy with trap SOS
+            if (trapcount == c.getSize()) {
+                throw invalid_argument("Cannot place an SOS trap when all cogs are already trapped");
+            } else if (lurecount == c.getSize()) {
+                throw invalid_argument("Cannot place an SOS trap when all cogs are already lured");
+            } else if (trapcount + lurecount == c.getSize()) {
+                throw invalid_argument("Cannot place an SOS trap when all cogs are already trapped or lured");
             }
         } else {
-            gagchoice.target = -1;
-        }
-        // check for invalid gag usage
-        bool usage_error = false;
-        if (gagchoice.kind == GagKind::TRAP) {
-            if (gagchoice.target == -1) {
-                // note: the checks below deviate from the true game experience, which is buggy with trap SOS
-                if (trapcount == c.getSize()) {
-                    cerr << "Cannot place an SOS trap when all cogs are already trapped" << endl;
-                    usage_error = true;
-                } else if (lurecount == c.getSize()) {
-                    cerr << "Cannot place an SOS trap when all cogs are already lured" << endl;
-                    usage_error = true;
-                }
-            } else {
-                if (c.getCog(gagchoice.target).getTrap()) {
-                    cerr << "Cannot trap an already trapped cog" << endl;
-                    usage_error = true;
-                } else if (c.getCog(gagchoice.target).getLured()) {
-                    cerr << "Cannot trap an already lured cog" << endl;
-                    usage_error = true;
-                }
-            }
-        } else if (gagchoice.kind == GagKind::LURE) {
-            if (gagchoice.target == -1 && lurecount == c.getSize()) {
-                cerr << "Cannot group lure when all cogs are already lured" << endl;
-                usage_error = true;
-            } else if (gagchoice.target != -1 && c.getCog(gagchoice.target).getLured()) {
-                cerr << "Cannot lure an already lured cog" << endl;
-                usage_error = true;
+            if (c.getCog(gagchoice.target).getTrap()) {
+                throw invalid_argument("Cannot trap an already trapped cog");
+            } else if (c.getCog(gagchoice.target).getLured()) {
+                throw invalid_argument("Cannot trap an already lured cog");
             }
         }
-        if (usage_error) {
-            continue;
+    } else if (gagchoice.kind == GagKind::LURE) {
+        if (gagchoice.target == -1 && lurecount == c.getSize()) {
+            throw invalid_argument("Cannot group lure when all cogs are already lured");
+        } else if (gagchoice.target != -1 && c.getCog(gagchoice.target).getLured()) {
+            throw invalid_argument("Cannot lure an already lured cog");
         }
-        gagchoice.prestiged = pr;
-        gags.push_back(gagchoice);
-        ++toonIndex;
     }
-    cin.ignore();
-    return Battle::Strategy(gags, 2);
 }
 
 void Battle::fireTurn(vector<Gag> fires) {
@@ -859,23 +801,53 @@ void Battle::battle() {
         cout << endl << "\t" << c << endl << endl;
         do {
             // get player strategy
-            try {
-                if (lineInput) {  // one liner
-                    cout << PROMPT << "Your strategy: " << rang::style::reset;
-                    getline(cin, strat);
-                    if (strat == "END") {
-                        cout << "Force stop" << endl;
-                        break;
+            if (lineInput) {  // one liner
+                cout << PROMPT << "Your strategy: " << rang::style::reset;
+                getline(cin, strat);
+                if (strat == "END") {
+                    cout << "Force stop" << endl;
+                } else if (strat == "SKIP" || strat == "DELETE" || strat == "FIREALL") {
+                    vector<Gag> gags;
+                    for (size_t i = 0; i < c.getSize(); ++i) {
+                        gags.push_back(Gag(GagKind::FIRE, 0, i, false));
                     }
-                    turn(parseOneliner(strat));
-                } else {  // individual toon directing
-                    turn(parseGags());
+                    turn(Battle::Strategy(gags, 0));
+                } else {
+                    try {
+                        turn(parseOneliner(strat));
+                    } catch (const invalid_argument& e) {
+                        cerr << e.what() << endl;
+                    }
                 }
                 break;
-            } catch (const invalid_argument& e) {
-                cerr << e.what() << endl;
+            } else {  // individual toon directing
+                vector<Gag> gags;
+                size_t numtoons = 4;
+                size_t toonIndex = 1;
+                while (toonIndex <= numtoons) {
+                    cout << PROMPT << "Toon " << toonIndex << ": " << rang::style::reset;
+                    getline(cin, strat);
+                    if (strat == "UNDO" && toonIndex > 1) {
+                        gags.pop_back();
+                        --toonIndex;
+                    } else if (strat == "SKIP" || strat == "DELETE" || strat == "FIREALL") {
+                        for (size_t i = 0; i < c.getSize(); ++i) {
+                            gags.push_back(Gag(GagKind::FIRE, 0, i, false));
+                        }
+                        break;
+                    } else {
+                        try {
+                            gags.push_back(parseGag(strat));
+                            ++toonIndex;
+                        } catch (const invalid_argument& e) {
+                            cerr << e.what() << endl;
+                        }
+                    }
+                }
+                turn(Battle::Strategy(gags, 2));
+                break;
             }
-        } while (true);
+        } while (strat != "END");
     }
     if (c.getSize() == 0) {
         cout << "You did it!" << endl;

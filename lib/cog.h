@@ -18,18 +18,18 @@ public:
     Cog(std::string lvl) : Cog(std::stoi(lvl.substr(0, lvl.find("."))), lvl.find(".exe") != std::string::npos) {}
     ~Cog() {}
     Cog& operator=(const Cog& other);
-    int getHP() { return hp; }
-    int getLevel() { return level; }
+    int getHP() const { return hp; }
+    int getLevel() const { return level; }
     std::string getLevelName();
     void hit(int damage);
     void setTrap(int trap) { trapped = trap; }
     void untrap() { trapped = 0; }
-    int getTrap() { return trapped; }
+    int getTrap() const { return trapped; }
     void setLured(int state) { lured = state; }
     void unlure() { lured = 0; }
-    int getLured() { return lured; }
+    int getLured() const { return lured; }
     void soak() { soaked = true; }
-    bool getSoaked() { return soaked; }
+    bool getSoaked() const { return soaked; }
     friend std::ostream& operator<<(std::ostream& out, const Cog& cog);
 
 protected:

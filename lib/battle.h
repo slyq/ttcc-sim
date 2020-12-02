@@ -50,7 +50,8 @@ public:
 
     struct Strategy {
         std::vector<Gag> gags;
-        size_t config = 0;  // 0 default, 1 cross one-liner, 2 left-to-right input
+        // 0 right-to-left quickhand output, 1 cross (left-to-right quickhand output), 2 left-to-right input
+        size_t config = 0;
         Strategy(std::vector<Gag> g, size_t conf) : gags(g), config(conf) {}
     };
 
@@ -58,7 +59,8 @@ public:
     void setCogset(std::vector<Cog> set) { c = Cogset(set); }
     bool cogsetDead();
     Strategy parseOneliner(std::string strat);
-    Strategy parseGags();
+    Gag parseGag(std::string command);
+    void gagCheck(const Gag& gagchoice);
 
     void turn(Strategy strat);
 

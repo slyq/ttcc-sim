@@ -51,18 +51,24 @@ Cog& Cogset::getCog(int pos) {
 
 std::ostream& operator<<(std::ostream& out, const Cogset& cogset) {
     for (const Cog& cog : cogset.cogs) {
-        out << " " << cog << "\t\t";
+        out << " " << cog << "\t";
+        if (!cog.getTrap()) {
+            out << "\t";
+        }
     }
     return out;
 }
 
-void Cogset::print(std::vector<int> affected) {
+void Cogset::print(std::vector<int> affected) const {
     if (affected.size() == cogs.size()) {
         for (size_t i = 0; i < cogs.size(); ++i) {
             if (affected[i]) {
-                std::cout << ATTACKED << cogs[i] << ATTACKED << "\t\t";
+                std::cout << ATTACKED << cogs[i] << ATTACKED << "\t";
             } else {
-                std::cout << NOTATTACKED << cogs[i] << NOTATTACKED << "\t\t";
+                std::cout << NOTATTACKED << cogs[i] << NOTATTACKED << "\t";
+            }
+            if (!cogs[i].getTrap()) {
+                std::cout << "\t";
             }
         }
     }

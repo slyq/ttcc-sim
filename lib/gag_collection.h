@@ -29,7 +29,7 @@ struct Gag {
     bool prestiged;
 
     Gag() : kind(GagKind::PASS) {}
-    Gag(int t) : kind(GagKind::FIRE), target(t) {}
+    Gag(GagKind k, unsigned short d, int t, bool p) : kind(k), damage(d), target(t), prestiged(p) {}
     Gag(GagKind k, std::string n, unsigned short d, float a) : kind(k), name(n), damage(d), accuracy(a) {}
 };
 

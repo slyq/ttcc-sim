@@ -16,7 +16,8 @@ public:
     size_t getSize() const { return cogs.size(); }
     Cog& getCog(int pos);
     friend std::ostream& operator<<(std::ostream& out, const Cogset& cogset);
-    void print(std::vector<int> affected);
+    void print(std::vector<int> affected) const;
+
 private:
     std::queue<int> q;
     std::vector<Cog> cogs;
