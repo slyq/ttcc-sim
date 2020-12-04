@@ -12,17 +12,11 @@
 
 using namespace std;
 
-Battle::Battle() {  // default test run Battle
-    gc = GagCollection::read(file_path);
-}
+Battle::Battle(string file_path) : gc(GagCollection::read(file_path)) {}
 
-Battle::Battle(queue<int> set) : cogset(Cogset(set)) {  // pre generated set
-    gc = GagCollection::read(file_path);
-}
+Battle::Battle(string file_path, queue<int> set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
 
-Battle::Battle(vector<Cog> set) : cogset(Cogset(set)) {  // pre generated set
-    gc = GagCollection::read(file_path);
-}
+Battle::Battle(string file_path, vector<Cog> set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
 
 void Battle::generate() {
     srand(time(NULL));
@@ -69,13 +63,13 @@ void Battle::turn(Battle::Strategy strat) {
     for (size_t i = 0; i < gags.size(); ++i) {
         vector<Gag>& gagtrack = gags[i];
         if (!gagtrack.empty()) {
-            if (i == 5) {
+            if (strat.config == 2) {
+                sort(gagtrack.begin(), gagtrack.end(), OrderedGagComparator());
+            } else if (i == 5) {
                 if (strat.config == 0) {
                     sort(gagtrack.begin(), gagtrack.end(), GagComparator());
                 } else if (strat.config == 1) {
                     sort(gagtrack.begin(), gagtrack.end(), CrossGagComparator());
-                } else if (strat.config == 2) {
-                    sort(gagtrack.begin(), gagtrack.end(), OrderedGagComparator());
                 }
             } else {
                 sort(gagtrack.begin(), gagtrack.end(), GagComparator());
@@ -155,7 +149,7 @@ Battle::Strategy Battle::parseOneliner(string strat) {
                         director.push_back(i);
                         quickhand += 2;
                     } else if (parser[i] != '-') {
-                        if (!gc.contains(parser)) {
+                        if (!gc.contains(parser) && parser != "FIRE") {
                             throw invalid_argument("Unrecognized quickhand strategy " + parser);
                         }
                         break;
@@ -168,12 +162,14 @@ Battle::Strategy Battle::parseOneliner(string strat) {
                 if (!gc.contains(parser) && parser != "cross" && parser != "pres" && parser != "FIRE") {
                     throw invalid_argument("Wrong arguments after the quickhand strategy");
                 }
-                if (parser == "cross") {
-                    config = 1;
-                    ss >> parser;
-                }
-            } else if (!gc.contains(parser) && parser != "FIRE") {
+            } else if (!gc.contains(parser) && parser != "cross" && parser != "FIRE") {
                 throw invalid_argument("Unrecognized gag/command " + parser);
+            }
+            if (parser == "cross") {
+                config = 1;
+                if (!(ss >> parser) && quickhand == 0) {
+                    break;
+                }
             }
         }
         // parsed should now specify a gag
@@ -361,22 +357,25 @@ void Battle::battle() {
                         gags.push_back(Gag(GagKind::FIRE, 0, i, false));
                     }
                     turn(Battle::Strategy(gags, 0));
+                    break;
                 } else {
                     try {
                         turn(parseOneliner(strat));
+                        break;
                     } catch (const invalid_argument& e) {
                         cerr << e.what() << endl;
                     }
                 }
-                break;
             } else {  // individual toon directing
                 vector<Gag> gags;
                 size_t numtoons = 4;
                 size_t toonIndex = 1;
-                while (toonIndex <= numtoons) {
+                while (toonIndex <= numtoons && strat != "END") {
                     cout << PROMPT << "Toon " << toonIndex << ": " << rang::style::reset;
                     getline(cin, strat);
-                    if (strat == "UNDO" && toonIndex > 1) {
+                    if (strat == "END") {
+                        cout << "Force stop" << endl;
+                    } else if (strat == "UNDO" && toonIndex > 1) {
                         gags.pop_back();
                         --toonIndex;
                     } else if (strat == "SKIP" || strat == "DELETE" || strat == "FIREALL") {
@@ -393,8 +392,10 @@ void Battle::battle() {
                         }
                     }
                 }
-                turn(Battle::Strategy(gags, 2));
-                break;
+                if (strat != "END") {
+                    turn(Battle::Strategy(gags, 2));
+                    break;
+                }
             }
         } while (strat != "END");
     }

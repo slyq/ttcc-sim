@@ -24,10 +24,13 @@ $(BIN_DIR)/gameTest: $(BIN_DIR)/gameTest.o $(BIN_DIR)/cog.o $(BIN_DIR)/cogset.o 
 $(BIN_DIR)/gameTest.o: $(TEST_DIR)/gameTest.cpp $(LIB_DIR)/battle.h $(LIB_DIR)/cog.h $(LIB_DIR)/cogset.h $(LIB_DIR)/gag_collection.h $(LIB_DIR)/colors.h $(LIB_DIR)/rang.h $(BIN_DIR)/.dirstamp
 	$(CC) $(CPPFLAGS) -c $< -o $@
 
-$(BIN_DIR)/game: $(BIN_DIR)/game.o $(BIN_DIR)/cog.o $(BIN_DIR)/cogset.o $(BIN_DIR)/gag_collection.o $(BIN_DIR)/battle.o
+$(BIN_DIR)/game: $(BIN_DIR)/game.o $(BIN_DIR)/game_config.o $(BIN_DIR)/cog.o $(BIN_DIR)/cogset.o $(BIN_DIR)/gag_collection.o $(BIN_DIR)/battle.o
 	$(CC) $(CPPFLAGS) $^ -o $@
 
 $(BIN_DIR)/game.o: $(SRC_DIR)/game.cpp $(LIB_DIR)/battle.h $(LIB_DIR)/cog.h $(LIB_DIR)/cogset.h $(LIB_DIR)/gag_collection.h $(LIB_DIR)/colors.h $(LIB_DIR)/rang.h $(BIN_DIR)/.dirstamp
+	$(CC) $(CPPFLAGS) -c $< -o $@
+
+$(BIN_DIR)/game_config.o: $(SRC_DIR)/game_config.cpp $(BIN_DIR)/.dirstamp
 	$(CC) $(CPPFLAGS) -c $< -o $@
 
 $(BIN_DIR)/cog.o: $(SRC_DIR)/cog.cpp $(LIB_DIR)/cog.h $(LIB_DIR)/colors.h $(LIB_DIR)/rang.h $(BIN_DIR)/.dirstamp

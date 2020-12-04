@@ -124,7 +124,7 @@ TEST_F(CogTest, VerifyCog) {
 
 class ParseTest : public testing::Test {
 protected:
-    ParseTest() {}
+    ParseTest() : battle("gags.txt") {}
     virtual ~ParseTest() {}
     Battle battle;
     bool contains(Battle::Strategy s, const Gag& gag, size_t count);
@@ -322,7 +322,7 @@ TEST_F(ParseTest, MultLinePres) {
 
 class BattleTest : public testing::Test {
 protected:
-    BattleTest() {
+    BattleTest() : battle("gags.txt") {
         battle.setHitState(true);
         battle.setPrint(false);
         battle.setUpdate(true);

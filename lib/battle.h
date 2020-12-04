@@ -32,9 +32,10 @@ struct OrderedGagComparator {
 
 class Battle {
 public:
-    Battle();
-    Battle(std::queue<int> set);
-    Battle(std::vector<Cog> set);
+    Battle() {}
+    Battle(std::string file_path);
+    Battle(std::string file_path, std::queue<int> set);
+    Battle(std::string file_path, std::vector<Cog> set);
     Battle& operator=(const Battle& other) {
         cogset = other.cogset;
         posDefinition = other.posDefinition;
@@ -73,8 +74,6 @@ private:
     GagCollection gc;
     std::map<std::string, int> posDefinition
             = {{"left", 0}, {"mid-left", 1}, {"mid", 1}, {"mid-right", 2}, {"right", 0}};
-
-    const std::string file_path = "gags.txt";
 
     bool autoPres = true;
     bool autoHit = true;

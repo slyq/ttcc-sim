@@ -1,0 +1,5 @@
+all_prestige: 1
+no_miss: 1
+round_decay: 0
+line_input: 1
+gag_file: gags.txt
