@@ -14,14 +14,14 @@ quicksand 90 100
 trapdoor 140 100
 wreckingball 200 100
 tnt 240 100
-1dollar 0 50
-smallmagnet 0 50
-5dollar 0 60
-bigmagnet 0 60
-10dollar 0 70
-hypno 0 70
-50dollar 0 80
-presentation 0 80
+1dollar 0 50 2
+smallmagnet 0 50 2
+5dollar 0 60 3
+bigmagnet 0 60 3
+10dollar 0 70 4
+hypno 0 70 4
+50dollar 0 80 5
+presentation 0 80 5
 kazoo 4 95
 bikehorn 7 95
 whistle 11 95
@@ -30,14 +30,14 @@ aoogah 21 95
 trunk 32 95
 fog 50 95
 opera 65 95
-flower 4 95
-glass 8 95
-gun 12 95
-wballoon 21 95
-seltzer 30 95
-hose 56 95
-cloud 80 95
-geyser 115 95
+flower 4 95 1
+glass 8 95 1
+gun 12 95 2
+wballoon 21 95 2
+seltzer 30 95 3
+hose 56 95 3
+cloud 80 95 4
+geyser 115 95 4
 buzzer 3 30
 rug 6 30
 balloon 10 30
@@ -68,15 +68,15 @@ flippy 150
 will 140
 penny 220
 clara 240
-stinkyned 4
-nancy 5
-oldman 6
+stinkyned 4 3
+nancy 5 4
+oldman 6 5
 barbara 40
 sonata 60
 moe 85
-sid 56
-sanjay 80
-sharky 115
+sid 56 3
+sanjay 80 4
+sharky 115 4
 dentist 45
 electra 70
 nat 85

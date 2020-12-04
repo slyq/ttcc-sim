@@ -27,6 +27,7 @@ struct Gag {
     int accuracy;
     int target;
     bool prestiged;
+    int passiveEffect;
 
     Gag() : kind(GagKind::PASS) {}
     Gag(GagKind k, unsigned short d, int t, bool p) : kind(k), damage(d), target(t), prestiged(p) {}

@@ -325,6 +325,7 @@ protected:
     BattleTest() {
         battle.setHitState(true);
         battle.setPrint(false);
+        battle.setUpdate(true);
     }
     virtual ~BattleTest() {}
     Battle battle;
@@ -341,7 +342,7 @@ TEST_F(BattleTest, TrapDrop) {
 
     battle.setPresState(false);
     battle.turn(battle.parseOneliner("xx wreckingball tnt hypno xX boulder weight piano"));
-    EXPECT_TRUE(battle.cogsetDead());
+    EXPECT_TRUE(battle.getCogset().allDead());
 }
 
 TEST_F(BattleTest, Lure) {
@@ -352,15 +353,23 @@ TEST_F(BattleTest, Lure) {
 
     // xx--
     battle.turn(battle.parseOneliner("10dollar left 50dollar mid-left"));
+    EXPECT_EQ(battle.getCogset().getCog(0).getLured(), -4);
+    EXPECT_EQ(battle.getCogset().getCog(1).getLured(), -5);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i < 2 ? 1 : 0);
+        if (i >= 2) {
+            EXPECT_EQ(battle.getCogset().getCog(i).getLured(), 0);
+        }
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 
     // xxoo (does not override previous lure)
     battle.turn(battle.parseOneliner("pres bigmagnet"));
+    EXPECT_EQ(battle.getCogset().getCog(0).getLured(), -3);
+    EXPECT_EQ(battle.getCogset().getCog(1).getLured(), -4);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i < 2 ? 1 : 2);
+        if (i >= 2) {
+            EXPECT_EQ(battle.getCogset().getCog(i).getLured(), 3);
+        }
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 
@@ -368,7 +377,7 @@ TEST_F(BattleTest, Lure) {
     // xoxo (single prestige override on same turn)
     battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 0 ? 1 : 2);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 0 ? -3 : 7);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 
@@ -376,7 +385,7 @@ TEST_F(BattleTest, Lure) {
     // oooo (group prestige override on same turn)
     battle.turn(battle.parseOneliner("x-x- 10dollar 5dollar pres hypno"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), 2);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 1 ? 4 : (i == 0 ? 8 : 7));
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 }
@@ -403,7 +412,7 @@ TEST_F(BattleTest, LureNoKnockbackDamage) {
 
     battle.turn(battle.parseOneliner("x-xx anvil rake taser hypno"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i < 2 ? 1 : 0);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i < 2 ? -4 : 0);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), postHP[i]);
     }
 
@@ -421,7 +430,7 @@ TEST_F(BattleTest, LureKnockbackKill) {
 
     battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
     battle.turn(battle.parseOneliner("xxxx hose cloud cake cake"));
-    EXPECT_TRUE(battle.cogsetDead());
+    EXPECT_TRUE(battle.getCogset().allDead());
 }
 
 TEST_F(BattleTest, Sound) {
@@ -435,7 +444,7 @@ TEST_F(BattleTest, Sound) {
     // kill check
     battle.setCogset(vector<Cog>(4, 12));
     battle.turn(battle.parseOneliner("4 trunk"));
-    EXPECT_TRUE(battle.cogsetDead());
+    EXPECT_TRUE(battle.getCogset().allDead());
 
     // high-low tests
     // 9.exes still live because not all pres
@@ -468,47 +477,53 @@ TEST_F(BattleTest, SoundOther) {
     battle.setCogset(set);
     battle.setPresState(false);
     battle.turn(battle.parseOneliner("3 pres aoogah fruit right"));
-    EXPECT_TRUE(battle.cogsetDead());
+    EXPECT_TRUE(battle.getCogset().allDead());
     // sound + drop
     set = vector<Cog>(3, 11);
     set.push_back(Cog(14, true));
     battle.setCogset(set);
     battle.setPresState(true);
     battle.turn(battle.parseOneliner("fog 2 trunk piano right"));
-    EXPECT_TRUE(battle.cogsetDead());
+    EXPECT_TRUE(battle.getCogset().allDead());
 }
 
 TEST_F(BattleTest, Squirt) {
-    // x---
     battle.setCogset(vector<Cog>(4, 11));
     battle.setPresState(false);
 
-    battle.turn(battle.parseOneliner("flower left"));
-    EXPECT_TRUE(battle.getCogset().getCog(0).getSoaked());
-    EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 152);
+    // x---
+    // 4000
+    battle.turn(battle.parseOneliner("cloud left"));
+    EXPECT_EQ(battle.getCogset().getCog(0).getSoaked(), 4);
+    EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 76);
     for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156);
     }
 
-    // x,o,
-    battle.turn(battle.parseOneliner("pres flower mid-right"));
-    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i % 2 == 0 ? 4 : 0));
-    }
-
     // -,o,
-    battle.setCogset(vector<Cog>(4, 11));
+    // 3222
     battle.turn(battle.parseOneliner("pres flower mid-right"));
-    EXPECT_FALSE(battle.getCogset().getCog(0).getSoaked());
-    EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 156);
+    EXPECT_EQ(battle.getCogset().getCog(0).getSoaked(), 3);
+    EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 76);
     for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), 2);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i == 2 ? 4 : 0));
     }
 
+    // -,o,
+    // 0444
+    battle.setCogset(vector<Cog>(4, 11));
+    battle.turn(battle.parseOneliner("pres hose mid-right"));
+    EXPECT_FALSE(battle.getCogset().getCog(0).getSoaked());
+    EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 156);
+    for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), 4);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i == 2 ? 56 : 0));
+    }
+
     // o,--
+    // 2200
     battle.setCogset(vector<Cog>(4, 11));
     battle.turn(battle.parseOneliner("pres flower left"));
     EXPECT_TRUE(battle.getCogset().getCog(0).getSoaked());
@@ -517,15 +532,32 @@ TEST_F(BattleTest, Squirt) {
         if (i != 1) {
             EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
         } else {
-            EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+            EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), 2);
         }
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156);
     }
 
-    // o,,o
+    // --,o
+    // 1122
     battle.turn(battle.parseOneliner("pres flower right"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i < 2 ? 1 : 2);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i % 3 == 0 ? 4 : 0));
+    }
+
+    // --x-
+    // 0011
+    battle.turn(battle.parseOneliner("flower mid-right"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i < 2 ? 0 : 1);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i != 1 ? 4 : 0));
+    }
+
+    // ,o,-
+    // 3330
+    battle.turn(battle.parseOneliner("pres gun mid-left"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i == 3 ? 0 : 3);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i != 1 ? 4 : 12));
     }
 }

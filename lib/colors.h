@@ -10,8 +10,11 @@
 
 #define DEAD rang::bgB::red << rang::style::bold
 #define PRESLURED "*"
-#define ATTACKED "|"
-#define NOTATTACKED " "
+#define DAMAGE rang::fgB::red << rang::style::bold
+#define KNOCKBACK rang::fgB::green << rang::style::bold
+#define COMBO rang::fgB::yellow << rang::style::bold
+
+#define ATTACKED "<"
 
 #define CONFIG rang::fgB::cyan << rang::style::bold
 #define PROMPT rang::fgB::magenta << rang::style::bold

@@ -17,6 +17,11 @@ GagCollection GagCollection::read(const std::string& file_path) {
         for (size_t j = 0; j < 8; ++j) {
             file >> name >> damage >> accuracy;
             gc.gagmap[name] = Gag((GagKind)i, name, damage, accuracy);
+            if (i == 2 || i == 4) {
+                int effect;
+                file >> effect;
+                gc.gagmap[name].passiveEffect = effect;
+            }
         }
     }
     // 3 active sos per track
@@ -25,6 +30,11 @@ GagCollection GagCollection::read(const std::string& file_path) {
             file >> name >> damage;
             gc.gagmap[name] = Gag((GagKind)i, name, damage, 100);
             gc.sosset.insert(name);
+            if (i == 2 || i == 4) {
+                int effect;
+                file >> effect;
+                gc.gagmap[name].passiveEffect = effect;
+            }
         }
     }
     // rain

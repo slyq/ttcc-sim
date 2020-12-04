@@ -15,10 +15,14 @@ int main() {
     cout << CONFIG << "Assume no miss? [Y/n] " << rang::style::reset;
     getline(cin, choice);
     bool hitState = (choice != "n" && choice != "N");
+    cout << CONFIG << "Consider lure and soak decay? [Y/n] " << rang::style::reset;
+    getline(cin, choice);
+    bool updateState = (choice != "n" && choice != "N");
     // determine input method
     cout << CONFIG << "Input using one-liners? (will use individual commands otherwise) [Y/n] " << rang::style::reset;
     getline(cin, choice);
     bool lineInput = (choice != "n" && choice != "N");
+
     // determine cog set
     cout << CONFIG << "Use a randomly generated cog set? [Y/n] " << rang::style::reset;
     getline(cin, choice);
@@ -40,6 +44,7 @@ int main() {
         }
         b.setPresState(presState);
         b.setHitState(hitState);
+        b.setUpdate(updateState);
         b.setInputState(lineInput);
         // run game
         b.battle();
