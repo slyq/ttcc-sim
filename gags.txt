@@ -66,11 +66,11 @@ chuckle 78
 don 95
 flippy 150
 will 140
-penny 220
+penny 200
 clara 240
-stinkyned 4 3
-nancy 5 4
-oldman 6 5
+stinkyned 0 4
+nancy 0 5
+oldman 0 6
 barbara 40
 sonata 60
 moe 85

@@ -34,8 +34,8 @@ class Battle {
 public:
     Battle() {}
     Battle(std::string file_path);
-    Battle(std::string file_path, std::queue<int> set);
-    Battle(std::string file_path, std::vector<Cog> set);
+    Battle(std::string file_path, const std::queue<int>& set);
+    Battle(std::string file_path, const std::vector<Cog>& set);
     Battle& operator=(const Battle& other) {
         cogset = other.cogset;
         posDefinition = other.posDefinition;
@@ -54,20 +54,12 @@ public:
     void setInputState(bool inputState) { lineInput = inputState; }
     void setPrint(bool printState) { cogset.setPrint(printState); }
 
-
-    struct Strategy {
-        std::vector<Gag> gags;
-        // 0 right-to-left quickhand output, 1 cross (left-to-right quickhand output), 2 left-to-right input
-        size_t config = 0;
-        Strategy(std::vector<Gag> g, size_t conf) : gags(g), config(conf) {}
-    };
-
     Cogset getCogset() { return cogset; }
     void setCogset(std::vector<Cog> set) { cogset = Cogset(set); }
-    Strategy parseOneliner(std::string strat);
+    std::vector<Gag> parseOneliner(std::string strat);
     Gag parseGag(std::string command);
 
-    void turn(Strategy strat);
+    void turn(std::vector<Gag> strat);
 
 private:
     Cogset cogset;

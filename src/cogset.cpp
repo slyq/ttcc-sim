@@ -197,15 +197,15 @@ void Cogset::fireTurn(const vector<Gag>& fires) {
 
 void Cogset::trapTurn(const vector<Gag>& traps) {
     vector<int> setups(cogs.size(), 0);
+    char badMix = 0;
     for (const Gag& g : traps) {
         if (g.target == -1) {
+            badMix |= 1;
             // sos gag - hits all
             for (size_t i = 0; i < setups.size(); ++i) {
                 if (setups[i]) {
                     // trap conflict - all traps become null
-                    for (size_t i = 0; i < setups.size(); ++i) {
-                        setups[i] = -1;
-                    }
+                    badMix = 3;
                     break;
                 } else if (cogs[i].getTrap() || cogs[i].getLured()) {
                     setups[i] = -1;
@@ -215,6 +215,7 @@ void Cogset::trapTurn(const vector<Gag>& traps) {
                 }
             }
         } else if (cogs[g.target].getHP() != 0) {
+            badMix |= 2;
             if (setups[g.target] || cogs[g.target].getTrap() || cogs[g.target].getLured()) {
                 // trap conflict - all traps targeting this cog become null
                 setups[g.target] = -1;
@@ -225,7 +226,7 @@ void Cogset::trapTurn(const vector<Gag>& traps) {
     }
     // set traps
     for (int& i : setups) {
-        if (i == -1) {
+        if (i == -1 || badMix == 3) {
             i = 0;
         }
     }

@@ -6,8 +6,9 @@
 Cog& Cog::operator=(const Cog& other) {
     level = other.level;
     hp = other.hp;
-    soaked = other.soaked;
+    trapped = other.trapped;
     lured = other.lured;
+    soaked = other.soaked;
     executive = other.executive;
     return *this;
 }

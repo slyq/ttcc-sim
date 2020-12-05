@@ -41,5 +41,7 @@ GagCollection GagCollection::read(const std::string& file_path) {
     file >> name >> damage;
     gc.gagmap[name] = Gag(GagKind::DROP, name, damage, 100);
     gc.sosset.insert(name);
+    // fire
+    gc.gagmap["fire"] = Gag(GagKind::FIRE, "fire", 0, 100);
     return gc;
 }

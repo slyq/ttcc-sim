@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cmath>
 #include <sstream>
+#include <stack>
 #include <stdlib.h>
 #include <string>
 #include <time.h>
@@ -14,9 +15,9 @@ using namespace std;
 
 Battle::Battle(string file_path) : gc(GagCollection::read(file_path)) {}
 
-Battle::Battle(string file_path, queue<int> set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
+Battle::Battle(string file_path, const queue<int>& set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
 
-Battle::Battle(string file_path, vector<Cog> set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
+Battle::Battle(string file_path, const vector<Cog>& set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
 
 void Battle::generate() {
     srand(time(NULL));
@@ -41,39 +42,22 @@ void Battle::generate() {
     cogset = Cogset(set);
 }
 
-void Battle::turn(Battle::Strategy strat) {
+void Battle::turn(vector<Gag> strat) {
     vector<vector<Gag>> gags;
     size_t num_gagtracks = 8;
     for (size_t i = 0; i < num_gagtracks + 1; ++i) {
         vector<Gag> gagtrack;
         gags.push_back(gagtrack);
     }
-    for (size_t i = 0; i < strat.gags.size(); ++i) {
+    for (size_t i = 0; i < strat.size(); ++i) {
         if (autoPres) {
-            strat.gags[i].prestiged = true;
+            strat[i].prestiged = true;
         }
         if (autoHit) {
-            strat.gags[i].accuracy = 100;
+            strat[i].accuracy = 100;
         }
-        if (strat.gags[i].kind != GagKind::PASS) {
-            gags[(int)strat.gags[i].kind].push_back(strat.gags[i]);
-        }
-    }
-    // sort accordingly
-    for (size_t i = 0; i < gags.size(); ++i) {
-        vector<Gag>& gagtrack = gags[i];
-        if (!gagtrack.empty()) {
-            if (strat.config == 2) {
-                sort(gagtrack.begin(), gagtrack.end(), OrderedGagComparator());
-            } else if (i == 5) {
-                if (strat.config == 0) {
-                    sort(gagtrack.begin(), gagtrack.end(), GagComparator());
-                } else if (strat.config == 1) {
-                    sort(gagtrack.begin(), gagtrack.end(), CrossGagComparator());
-                }
-            } else {
-                sort(gagtrack.begin(), gagtrack.end(), GagComparator());
-            }
+        if (strat[i].kind != GagKind::PASS) {
+            gags[(int)strat[i].kind].push_back(strat[i]);
         }
     }
     // handle fires first
@@ -114,13 +98,14 @@ void Battle::turn(Battle::Strategy strat) {
     posDefinition["right"] = cogset.getSize() - 1;
 }
 
-Battle::Strategy Battle::parseOneliner(string strat) {
+vector<Gag> Battle::parseOneliner(string strat) {
     posDefinition["right"] = cogset.getSize() - 1;
     vector<Gag> gags;
     vector<int> director;
+    stack<int> crossdirector;
     stringstream ss(strat);
     string parser;
-    size_t config = 0;
+    bool cross = false;
     // each loop parses a gag+target or a multi zap combo
     while (ss >> parser) {
         int multiplier = 1;
@@ -166,7 +151,7 @@ Battle::Strategy Battle::parseOneliner(string strat) {
                 throw invalid_argument("Unrecognized gag/command " + parser);
             }
             if (parser == "cross") {
-                config = 1;
+                cross = true;
                 if (!(ss >> parser) && quickhand == 0) {
                     break;
                 }
@@ -229,7 +214,7 @@ Battle::Strategy Battle::parseOneliner(string strat) {
                     try {
                         int target = stoi(parser.substr(parser.find("!") + 1));
                         if (target < 0 || target >= (int)cogset.getSize()) {
-                            throw invalid_argument("out of bounds");
+                            throw invalid_argument("Out of bounds");
                         }
                         director.push_back(target);
                     } catch (const invalid_argument& e) {
@@ -268,7 +253,12 @@ Battle::Strategy Battle::parseOneliner(string strat) {
         gags[i].target = director[i];
         cogset.gagCheck(gags[i]);
     }
-    return Battle::Strategy(gags, config);
+    if (cross) {
+        sort(gags.begin(), gags.end(), CrossGagComparator());
+    } else {
+        sort(gags.begin(), gags.end(), GagComparator());
+    }
+    return gags;
 }
 
 Gag Battle::parseGag(string command) {
@@ -306,7 +296,7 @@ Gag Battle::parseGag(string command) {
                 try {
                     gagchoice.target = stoi(target.substr(target.find("!") + 1));
                     if (gagchoice.target < 0 || gagchoice.target >= (int)cogset.getSize())
-                        throw invalid_argument("out of bounds");
+                        throw invalid_argument("Out of bounds");
                 } catch (const invalid_argument& e) {
                     throw invalid_argument("Invalid index");
                 }
@@ -356,7 +346,7 @@ void Battle::battle() {
                     for (size_t i = 0; i < cogset.getSize(); ++i) {
                         gags.push_back(Gag(GagKind::FIRE, 0, i, false));
                     }
-                    turn(Battle::Strategy(gags, 0));
+                    turn(gags);
                     break;
                 } else {
                     try {
@@ -393,7 +383,8 @@ void Battle::battle() {
                     }
                 }
                 if (strat != "END") {
-                    turn(Battle::Strategy(gags, 2));
+                    sort(gags.begin(), gags.end(), OrderedGagComparator());
+                    turn(gags);
                     break;
                 }
             }
