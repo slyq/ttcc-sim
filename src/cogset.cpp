@@ -3,10 +3,10 @@
 #include "colors.h"
 #include "rang.h"
 #include <algorithm>
-#include <time.h>
 #include <cmath>
 #include <sstream>
 #include <string>
+#include <time.h>
 
 #define PADDING 28
 
@@ -108,7 +108,7 @@ void Cogset::attack(const vector<int>& affected, char type) {
                         default:
                             break;
                         }
-                        cout << affected[i] << " " << rang::style::reset << string(PADDING - 1 - (int)log10(affected[i]) - 1, ' ');
+                        cout << affected[i] << rang::style::reset << string(PADDING - (int)log10(affected[i]) - 1, ' ');
                     }
                 } else {
                     if (printCogset) {
@@ -123,9 +123,7 @@ void Cogset::attack(const vector<int>& affected, char type) {
     }
 }
 
-void Cogset::attack(const vector<int>& affected) {
-    attack(affected, 0);
-}
+void Cogset::attack(const vector<int>& affected) { attack(affected, 0); }
 
 void Cogset::apply(const vector<int>& affected, GagKind gk) {
     if (affected.size() == cogs.size()) {
@@ -188,7 +186,11 @@ void Cogset::fireTurn(const vector<Gag>& fires) {
     for (const Gag& g : fires) {
         fired[g.target] = cogs[g.target].getHP();
     }
+    // temporarily turn off printing for fires
+    bool currentPrintConf = printCogset;
+    printCogset = false;
     attack(fired);
+    printCogset = currentPrintConf;
     if (printCogset) {
         cout << "Fire" << rang::style::reset << "\t";
         print(fired);
@@ -250,7 +252,7 @@ void Cogset::lureTurn(const vector<Gag>& lures) {
                         if (g.prestiged) {
                             lured[i] = abs(lured[i]) + g.passiveEffect;
                         } else {
-                            lured[i] += lured[i] > 0 ? g.passiveEffect : -1*g.passiveEffect;
+                            lured[i] += lured[i] > 0 ? g.passiveEffect : -1 * g.passiveEffect;
                         }
                         if (cogs[i].getTrap()) {
                             damages[i] = cogs[i].getTrap();
@@ -263,7 +265,7 @@ void Cogset::lureTurn(const vector<Gag>& lures) {
                 if (g.prestiged) {
                     lured[g.target] = abs(lured[g.target]) + g.passiveEffect;
                 } else {
-                    lured[g.target] += lured[g.target] > 0 ? g.passiveEffect : -1*g.passiveEffect;
+                    lured[g.target] += lured[g.target] > 0 ? g.passiveEffect : -1 * g.passiveEffect;
                 }
                 if (cogs[g.target].getTrap()) {
                     damages[g.target] = cogs[g.target].getTrap();
@@ -359,10 +361,12 @@ void Cogset::squirtTurn(const vector<Gag>& squirts) {
             damages[g.target] += g.damage;
             // handle soaking
             if (g.prestiged) {
-                if (g.target - 1 >= 0 && cogs[g.target - 1].getHP() != 0 && effectiveRounds > soakRounds[g.target - 1]) {
+                if (g.target - 1 >= 0 && cogs[g.target - 1].getHP() != 0
+                    && effectiveRounds > soakRounds[g.target - 1]) {
                     soakRounds[g.target - 1] = effectiveRounds;
                 }
-                if (g.target + 1 < (int)cogs.size() && cogs[g.target + 1].getHP() != 0 && effectiveRounds > soakRounds[g.target + 1]) {
+                if (g.target + 1 < (int)cogs.size() && cogs[g.target + 1].getHP() != 0
+                    && effectiveRounds > soakRounds[g.target + 1]) {
                     soakRounds[g.target + 1] = effectiveRounds;
                 }
             }
@@ -419,15 +423,15 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
             // TODO: double check how sos zap + regular zap work
         } else {
             // examine each zap's effect on all cogs (avoid recalculating on the same cog)
-            vector<bool> examined;
-            examined.assign(cogs.size(), false);
+            vector<bool> examined(cogs.size(), false);
             size_t jump_count = 0;
-            int examine_count = 0;
+            size_t examine_count = 0;
             int targ = g.target;
+            bool initialJumpedState = jumped[g.target];
             char dir = -1;      // -1 left, 1 right
             int lasttarg = -1;  // keeps track of last cog hit (zap cannot jump more than two spaces)
             float dropoff = g.prestiged ? 0.5 : 0.75;
-            while (jump_count < 3 && examine_count < (int)cogs.size() && (lasttarg == -1 || abs(targ - lasttarg) <= 2)) {
+            while (jump_count < 3 && examine_count < cogs.size() && (lasttarg == -1 || abs(targ - lasttarg) <= 2)) {
                 // keep checking until jump count limit reached, all cogs examined, or zap fails to jump
                 if (jump_count == 0 && (!soaked[targ] || cogs[targ].getHP() == 0)) {  // starting on a dry/dead cog
                     if (cogs[targ].getHP() != 0) {
@@ -454,8 +458,8 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
                 }
                 targ += dir;
             }
-            // undo "jumped" for the targeted cog
-            jumped[g.target] = false;
+            // "undo" jumped for the targeted cog
+            jumped[g.target] = initialJumpedState;
         }
         allDamages.push_back(damages);
     }

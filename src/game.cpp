@@ -1,7 +1,7 @@
 #include "battle.h"
 #include "colors.h"
-#include "rang.h"
 #include "game_config.h"
+#include "rang.h"
 #include <string>
 
 using namespace std;

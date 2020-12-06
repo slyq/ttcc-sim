@@ -2,34 +2,50 @@
 A simulator of TTCC's battle mechanics (WIP)
 
 ## Command format for one liners
-`[number/strategy] [pres] <gag(s)> <target> ...[[number/strategy] [pres] <gag(s)> <target>]`
+`[pres] [quickhand-strat and/or cross] [number] [pres] <gag>[s] (target) ...[[number] [pres] <gag>[s] (target)]`
 
-The command is parsed left to right, but gags will be automatically applied in the conventional order (Fire, Toonup, Trap, Lure, Sound, Squirt, Zap, Throw, Drop). By default, when equivalent gags are used, *the cog furthest to the right is attacked first*. For more precise commands, use the other command format.
+A valid command may have any number of the command block defined above. Each command block may have multiple gag blocks (`[number] [pres] <gag>[s] (target)`). The order of each command block does not matter, but the order of gag blocks within each command block may matter.
 
-The command order for each gag matters. However, blocks of gag commands can be specified in any order.
+The command is parsed left to right, but gags will be automatically applied in the conventional order (Fire, Toonup, Trap, Lure, Sound, Squirt, Zap, Throw, Drop). By default, when equivalent gags are used, *the cog furthest to the right is attacked first* (straight ordering). A cross ordering option is also provided.
 
 Consider the following: `hypno pres wreckingball left 2 anvil left` is valid and can be separated into three blocks in the correct order: `pres wreckingball left`, `hypno`, `2 anvil left`.
+
+The order between the quickhand strategy and `cross` does not matter.
+
+To simulate all toons passing, an empty command can be supplied.
 
 For one-liners, a quickhand strategy can be used for efficiency.
 
 ### Quickhand strategy format:
-* the quickhand strategy consists of only '-', 'x', or 'X'
-    * '-' specifies that the respective cog is not targeted
-    * 'x' specifies that the respective cog is targeted once
-    * 'X' specifies that the respective cog is targeted twice
+* the quickhand strategy consists of only `-`, `x`, or `X`
+    * `-` specifies that the respective cog is not targeted
+    * `x` specifies that the respective cog is targeted once
+    * `X` specifies that the respective cog is targeted twice
     * should be the same length as the cog set
-* the quickhand strategy must be followed by the gags relevant to it in the format `[pres] <gag>`
+* the quickhand strategy must be followed by the gags relevant to it in the format `[number] [pres] <gag>[s]`
     * gags are parsed left to right
-    * example 1: if x-x- or -X-- is specified, two valid gags must follow it
-    * example 2: -X-x will assume the next two gags target mid-left and the third gag targets right
-* if preceded by "pres", all gags that are part of the quickhand strategy are prestiged
-    * note: if followed by "pres", the prestige only applies to the gag following it
+    * example 1: if `x-x-` or `-X--` is specified, two valid gags must follow it
+    * example 2: `-X-x` will assume the next two gags target mid-left and the third gag targets right
+* if preceded by `pres`, all gags that are part of the quickhand strategy are prestiged
+    * note: if followed by `pres`, the prestige only applies to the gag following it
+* if neighboring a `cross`, supplied gags will be mapped to apply left to right
+* if a gag following the strategy is pluralized, the gag will be "spread" out to apply to every position not already assigned; however, pluralized gags with a number in front will only spread out to the amount specified
+    * this means that `x-x- tvs` will spread out to `tv mid-right` and `tv left`
+* if the number of gags is supplied, they will be spread out from right to left (or left to right if crossed) until all are expended
 
-### Crossing for zap
-When equivalent zap gags are used, the cog furthest to the right is zapped first. When you specify `cross` anywhere, zap gags of the same damage will cross so that they are applied left to right.
+### Crossing gags
+When you specify `cross` before gags, gags of the same kind and damage will cross so that they are applied left to right.
 * `x-x- pres tv tv` translates to `tv mid-right` first, then `pres tv left`
-* `x-x- cross pres tv tv` translates to `pres tv left` first, then `tv mid-right`
+* `x-x- cross pres tv tv` translates to `tv left` first, then `pres tv mid-right`
 
+If `cross` is specified without the quickhand strategy, crossing will only be applied until gags are not equivalent both in kind and damage. As an example, `cross tesla mid-right tv left` will disregard crossing and instead simply translate to `tv left` first, then `tesla mid-right` (since weaker gags go first).
+
+### Complex one-liner examples:
+* `pres -xXx 3 buzzer flower` translates to `pres flower right`, then `pres 2 buzzer mid-right` and `pres buzzer mid-left`
+* `xx-X cross 2 pres anvil 2 anvils` translates to `2 pres anvil right`, `anvil mid-left`, and `anvil left` (the pluralized `anvils` did not matter here)
+* `cross x-Xx 2 teslas pres clouds` translates to `pres cloud left` and `pres cloud mid-right` (cloud spreads out to the remaining targets), then `tesla mid-right` and `tesla right` (teslas are assigned targets first because they are specified first, and they take the two rightmost targets because of `cross`)
+
+At a certain point, one liners may become too complex. Therefore, the program also provides parsing by toon, as explained below.
 
 ## Command format for individual commands
 `[pres] <gag> <target>`
@@ -52,13 +68,14 @@ For cog sets larger than 1, the specified target can be a 0-indexed position (pr
 | `right`     | rightmost cog |
 
 ### Non-gag commands:
-| command                   | meaning                                                                       |
-|---------------------------|-------------------------------------------------------------------------------|
-| `UNDO`                    | undo last toon's choice (**only for individual commands**)                    |
-| `PASS`                    | pass (**only for individual commands** - line equivalent is an empty command) |
-| `FIRE <target>`           | fire the targeted cog                                                         |
-| `DELETE`/`FIREALL`/`SKIP` | fire all cogs                                                                 |
-| `END`                     | quit the program                                                              |
+| command                   | meaning                                                    |
+|---------------------------|------------------------------------------------------------|
+| `UNDO`                    | undo last toon's choice (**only for individual commands**) |
+| `PASS`                    | pass a toon's turn (**only for individual commands**)      |
+| `ALLPASS`                 | all toons pass (**only for individual commands**)          |
+| `fire <target>`           | fire the targeted cog (can treat this like a normal gag)   |
+| `DELETE`/`FIREALL`/`SKIP` | fire all cogs                                              |
+| `END`                     | quit the program                                           |
 
 ## Configuration
 The program is able to detect a configuration file named `conf.txt` in the same directory. If not present, the program will instead query the user for each configuration for the battle.

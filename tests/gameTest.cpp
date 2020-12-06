@@ -126,12 +126,12 @@ TEST_F(CogTest, HPUpdate) {
 
 TEST_F(CogTest, TrapUpdate) {
     int traps[2] = {20, 240};
-    for (size_t i = 1; i < cogs.size(); i+=2) {
-        cogs[i].setTrap(traps[i/2]);
+    for (size_t i = 1; i < cogs.size(); i += 2) {
+        cogs[i].setTrap(traps[i / 2]);
     }
     for (size_t i = 0; i < cogs.size(); ++i) {
         if (i % 2 == 1) {
-            EXPECT_EQ(cogs[i].getTrap(), traps[i/2]);
+            EXPECT_EQ(cogs[i].getTrap(), traps[i / 2]);
         } else {
             EXPECT_FALSE(cogs[i].getTrap());
         }
@@ -265,7 +265,7 @@ TEST_F(ParseTest, OneLineNoPres) {
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 80, -1, false), 1));
     EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 20, -1, false), 1));
 
-    gags = battle.parseOneliner("FIRE left");
+    gags = battle.parseOneliner("fire left");
     EXPECT_EQ(gags.size(), 1);
     EXPECT_TRUE(contains(gags, Gag(GagKind::FIRE, 0, 0, false), 1));
 }
@@ -308,9 +308,9 @@ TEST_F(ParseTest, OneLinePres) {
     gags = battle.parseOneliner("-xx- cross pres tv tv pres -X-- seltzer seltzer");
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, true), 2));
-    EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, true), 1));
-    EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
-    EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 1, true)) < indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)));
+    EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
+    EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, true), 1));
+    EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 1, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 2, true)));
 }
 
 TEST_F(ParseTest, MultLineNoPres) {
@@ -355,7 +355,7 @@ TEST_F(ParseTest, MultLineNoPres) {
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 80, -1, false), 1));
     EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 20, -1, false), 1));
 
-    commands = {"FIRE left", "PASS", "PASS", "PASS"};
+    commands = {"fire left", "PASS", "PASS", "PASS"};
     gags = buildStrat(commands);
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::FIRE, 0, 0, false), 1));

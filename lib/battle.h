@@ -9,24 +9,6 @@
 #include <vector>
 
 struct GagComparator {
-    bool operator()(const Gag& first, const Gag& second) const {
-        if (first.damage == second.damage) {
-            return second.target < first.target;
-        }
-        return first.damage < second.damage;
-    }
-};
-
-struct CrossGagComparator {
-    bool operator()(const Gag& first, const Gag& second) const {
-        if (first.damage == second.damage) {
-            return first.target < second.target;
-        }
-        return first.damage < second.damage;
-    }
-};
-
-struct OrderedGagComparator {
     bool operator()(const Gag& first, const Gag& second) const { return first.damage <= second.damage; }
 };
 
@@ -64,8 +46,16 @@ public:
 private:
     Cogset cogset;
     GagCollection gc;
-    std::map<std::string, int> posDefinition
-            = {{"left", 0}, {"mid-left", 1}, {"mid", 1}, {"mid-right", 2}, {"right", 0}};
+    std::map<std::string, int> posDefinition = {
+        {"left", 0},
+        {"mid-left", 1},
+        {"mid", 1},
+        {"mid-right", 2},
+        {"right", 0}
+    };
+
+    int validQuickhand(std::string quickhand) const;
+    bool isPluralGag(std::string gag) const;
 
     bool autoPres = true;
     bool autoHit = true;

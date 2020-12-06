@@ -5,8 +5,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <deque>
 #include <sstream>
-#include <stack>
 #include <stdlib.h>
 #include <string>
 #include <time.h>
@@ -98,166 +98,248 @@ void Battle::turn(vector<Gag> strat) {
     posDefinition["right"] = cogset.getSize() - 1;
 }
 
+int Battle::validQuickhand(string quickhand) const {
+    int counter = 0;
+    if (quickhand.size() == cogset.getSize()) {
+        for (size_t i = 0; i < cogset.getSize(); ++i) {
+            if (quickhand[i] == 'x') {
+                ++counter;
+            } else if (quickhand[i] == 'X') {
+                counter += 2;
+            } else if (quickhand[i] != '-') {
+                return 0;
+            }
+        }
+    }
+    return counter;
+}
+
+bool Battle::isPluralGag(string gag) const {
+    if (gag[gag.size() - 1] == 's') {
+        gag.pop_back();
+        return gc.contains(gag);
+    }
+    return false;
+}
+
+/*
+how straight/cross usage works:
+normally, gags are assigned to the target immediately following it or via a target queue (director) which is fed by the
+quickhand strat
+for gags that are relevant to the cross, the director temporarily functions as a stack until the cross is no longer
+relevant or the command is fully parsed, at which point cross gags in the block are assigned targets until the director is emptied
+the director will never serve as both a queue and stack at the same time
+*/
 vector<Gag> Battle::parseOneliner(string strat) {
     posDefinition["right"] = cogset.getSize() - 1;
     vector<Gag> gags;
-    vector<int> director;
-    stack<int> crossdirector;
+    deque<int> director;
     stringstream ss(strat);
-    string parser;
-    bool cross = false;
-    // each loop parses a gag+target or a multi zap combo
-    while (ss >> parser) {
-        int multiplier = 1;
-        size_t quickhand = 0;
-        bool pres = false;
-        if (!gc.contains(parser) && parser != "FIRE") {  // strategy first (mult gags or quickhand)
-            if (parser.size() == 1 && isdigit(parser[0])) {  // multiple gag
-                multiplier = stoi(parser);
-                ss >> parser;
-                // check if followed with gag or pres
-                if (!gc.contains(parser) && parser != "pres") {
-                    throw invalid_argument("Please supply the respective gag following your strategy");
-                }
+    string buffer;
+    bool cross = false, blockpres = false, gagpres = false;
+    int quickhand = 0, multiplier = 1;
+    size_t crossApplyIndex = 0;
+    while (ss >> buffer) {  // each loop parses one command block
+        if (buffer == "pres") {
+            ss >> buffer;
+            if (validQuickhand(buffer) || buffer == "cross") {
+                blockpres = true;
+            } else if (gc.contains(buffer) || isPluralGag(buffer)) {
+                gagpres = true;
+            } else {
+                throw invalid_argument("Expected strategy specification or gag after \"pres\"");
             }
-            if (parser == "pres") {
-                pres = true;
-                ss >> parser;
+        }
+        if (buffer == "cross") {
+            cross = true;
+            ss >> buffer;
+            if (!validQuickhand(buffer) && !(buffer.size() == 1 && isdigit(buffer[0])) && buffer != "pres"
+                && !(gc.contains(buffer) || isPluralGag(buffer))) {
+                throw invalid_argument("Expected quickhand strat or gag block after \"cross\"");
             }
-            if (parser.size() == cogset.getSize()) {  // might be a quickhand strategy callout in x and -
-                for (size_t i = 0; i < cogset.getSize(); ++i) {
-                    if (parser[i] == 'x') {
-                        director.push_back(i);
-                        ++quickhand;
-                    } else if (parser[i] == 'X') {
-                        director.push_back(i);
-                        director.push_back(i);
-                        quickhand += 2;
-                    } else if (parser[i] != '-') {
-                        if (!gc.contains(parser) && parser != "FIRE") {
-                            throw invalid_argument("Unrecognized quickhand strategy " + parser);
-                        }
-                        break;
-                    }
-                }
-                // check if followed with gag, pres, or cross
-                if (quickhand && !(ss >> parser)) {
-                    throw invalid_argument("Missing arguments after quickhand strategy");
-                }
-                if (!gc.contains(parser) && parser != "cross" && parser != "pres" && parser != "FIRE") {
-                    throw invalid_argument("Wrong arguments after the quickhand strategy");
-                }
-            } else if (!gc.contains(parser) && parser != "cross" && parser != "FIRE") {
-                throw invalid_argument("Unrecognized gag/command " + parser);
-            }
-            if (parser == "cross") {
+        }
+        if (validQuickhand(buffer)) {
+            quickhand = validQuickhand(buffer);
+            string temp = buffer;
+            ss >> buffer;
+            if (buffer == "cross") {
                 cross = true;
-                if (!(ss >> parser) && quickhand == 0) {
-                    break;
-                }
+                ss >> buffer;
             }
-        }
-        // parsed should now specify a gag
-        if (quickhand) {  // quickhand combo
-            for (size_t i = 0; i < quickhand; ++i) {
-                bool t_pres = false;
-                if (parser == "FIRE") {
-                    Gag fire;
-                    fire.kind = GagKind::FIRE;
-                    gags.push_back(fire);
-                } else {
-                    if (parser == "pres") {
-                        t_pres = true;
-                        ss >> parser;
-                    }
-                    if (gc.contains(parser)) {
-                        Gag gagchoice = gc.get(parser);
-                        gagchoice.prestiged = pres || t_pres;
-                        gags.push_back(gagchoice);
+            // insert directors
+            for (size_t i = 0; i < cogset.getSize(); ++i) {
+                if (temp[i] == 'x') {
+                    if (cross) {
+                        director.push_front(i);
                     } else {
-                        throw invalid_argument("Unrecognized gag following quickhand strat");
+                        director.push_back(i);
                     }
-                }
-                if (i != quickhand - 1) {
-                    ss >> parser;
-                }
-            }
-            pres = false;
-        } else {  // parse gag, then the target following it
-            if (parser == "pres") {
-                pres = true;
-                ss >> parser;
-            }
-            Gag gagchoice;
-            if (parser != "FIRE") {
-                gagchoice = gc.get(parser);
-            } else {
-                gagchoice.kind = GagKind::FIRE;
-                gagchoice.damage = 0;
-            }
-            gagchoice.prestiged = pres;
-
-            if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos)
-                || gagchoice.kind == GagKind::SOUND) {
-                for (int i = 0; i < multiplier; ++i) {
-                    director.push_back(-1);  // placeholder for multi hit (lure/sound)
-                }
-            } else if (gc.isSOS(parser)) {
-                // sos
-                director.push_back(-1);
-            } else if (cogset.getSize() == 1) {
-                // single target, automatic
-                director.push_back(0);
-            } else {
-                ss >> parser;
-                if (parser[0] == '!') {
-                    try {
-                        int target = stoi(parser.substr(parser.find("!") + 1));
-                        if (target < 0 || target >= (int)cogset.getSize()) {
-                            throw invalid_argument("Out of bounds");
-                        }
-                        director.push_back(target);
-                    } catch (const invalid_argument& e) {
-                        throw invalid_argument("Invalid index for " + gagchoice.name);
-                    }
-                } else if (posDefinition.find(parser) != posDefinition.end()) {  // word position check
-                    if (posDefinition[parser] >= (int)cogset.getSize()) {
-                        throw invalid_argument("Invalid position for " + gagchoice.name);
-                    }
-                    for (int i = 0; i < multiplier; ++i) {
-                        director.push_back(posDefinition[parser]);
-                    }
-                } else {  // cog level position check
-                    bool directed = false;
-                    for (size_t i = 0; i < cogset.getSize(); i++) {
-                        if (cogset.getCog(i).getLevelName() == parser) {
-                            for (int j = 0; j < multiplier; ++j) {
-                                director.push_back(i);
-                            }
-                            directed = true;
-                            break;
-                        }
-                    }
-                    if (!directed) {
-                        throw invalid_argument("Position not supplied for " + gagchoice.name);
+                } else if (temp[i] == 'X') {
+                    if (cross) {
+                        director.push_front(i);
+                        director.push_front(i);
+                    } else {
+                        director.push_back(i);
+                        director.push_back(i);
                     }
                 }
             }
-            for (int i = 0; i < multiplier; ++i) {
-                gags.push_back(gagchoice);
-            }
+            cross = false;
         }
+        // must be #, pres, or gag
+        if (!(buffer.size() == 1 && isdigit(buffer[0])) && buffer != "pres"
+            && !(gc.contains(buffer) || isPluralGag(buffer))) {
+            throw invalid_argument("Invalid gag block/command \"" + buffer + "\"");
+        }
+        crossApplyIndex = gags.size();
+        int spread = 0;
+        Gag remember;
+        do {  // each loop parses a gag block
+            if (buffer.size() == 1 && isdigit(buffer[0])) {
+                if (quickhand) {
+                    // spread by specific amount
+                    spread = stoi(buffer);
+                } else {
+                    // apply same gag on same target multiple times
+                    multiplier = stoi(buffer);
+                }
+                ss >> buffer;
+                if (buffer != "pres" && !(gc.contains(buffer) || isPluralGag(buffer))) {
+                    throw invalid_argument("Expected gag after multiplier");
+                }
+            }
+            if (buffer == "pres") {
+                gagpres = true;
+                ss >> buffer;
+            }
+            if (gc.contains(buffer) || isPluralGag(buffer)) {
+                Gag gagchoice;
+                if (isPluralGag(buffer)) {
+                    if (!spread && quickhand) {
+                        // plural without a multiplier - spread across entire quickhand
+                        spread = -1;
+                    }
+                    buffer.pop_back();
+                }
+                if (spread) {
+                    // repeat last gag
+                    if (remember.kind == GagKind::PASS) {
+                        // first time through, store
+                        gagchoice = gc.get(buffer);
+                        remember = gagchoice;
+                    } else {
+                        // retrieve
+                        gagchoice = remember;
+                    }
+                    if (--spread == 0) {
+                        // spread is over, reset remembered gag
+                        remember = Gag();
+                    }
+                } else {
+                    // get gag
+                    gagchoice = gc.get(buffer);
+
+                }
+                if (cross && (remember.kind != gagchoice.kind || remember.name != gagchoice.name)) {
+                    // non-quickhand crossed gag block has ended
+                    cross = false;
+                }
+                gagchoice.prestiged = gagpres || blockpres;
+                if (quickhand > 0 && director.size()) {
+                    if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
+                        throw invalid_argument("Cannot use multi-target gags/SOS in a quickhand strategy");
+                    }
+                    // retrieve target from the "queued" targets parsed from the quickhand
+                    gagchoice.target = director.front();
+                    director.pop_front();
+                } else if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
+                    gagchoice.target = -1;
+                } else if (cogset.getSize() == 1) {
+                    gagchoice.target = 0;
+                } else {
+                    // parse target
+                    int target = -2;
+                    ss >> buffer;
+                    if (buffer[0] == '!') {
+                        try {
+                            target = stoi(buffer.substr(buffer.find("!") + 1));
+                            if (target < 0 || target >= (int)cogset.getSize()) {
+                                throw invalid_argument("Out of bounds");
+                            }
+                        } catch (const invalid_argument& e) {
+                            throw invalid_argument("Invalid index for \"" + gagchoice.name + "\"");
+                        }
+                    } else if (posDefinition.find(buffer) != posDefinition.end()) {  // word position check
+                        if (posDefinition[buffer] >= (int)cogset.getSize()) {
+                            throw invalid_argument("Invalid position for \"" + gagchoice.name + "\"");
+                        }
+                        target = posDefinition[buffer];
+                    } else {  // cog level position check
+                        bool directed = false;
+                        for (size_t i = 0; i < cogset.getSize(); i++) {
+                            if (cogset.getCog(i).getLevelName() == buffer) {
+                                for (int j = 0; j < multiplier; ++j) {
+                                    target = i;
+                                }
+                                directed = true;
+                                break;
+                            }
+                        }
+                        if (!directed) {
+                            throw invalid_argument("Position not supplied for \"" + gagchoice.name + "\"");
+                        }
+                    }
+                    if (cross) {
+                        director.push_front(target);
+                    } else {
+                        gagchoice.target = target;
+                    }
+                }
+                for (int i = 0; i < multiplier; ++i) {
+                    gags.push_back(gagchoice);
+                }
+                if (quickhand) {
+                    quickhand -= multiplier;
+                }
+            } else if (quickhand) {
+                throw invalid_argument("Invalid gag \"" + buffer + "\"");
+            } else {
+                // likely the start of a new command block
+                cross = false;
+                spread = 0;
+                remember = Gag();
+            }
+            if (!spread) {
+                // reset gag prestige state if it is not being spread across
+                gagpres = false;
+            }
+            multiplier = 1;
+        } while ((quickhand > 0 || cross) && (spread || ss >> buffer));
+        // resolve cross targets
+        while (!director.empty()) {
+            gags[crossApplyIndex].target = director.front();
+            director.pop_front();
+            ++crossApplyIndex;
+        }
+        cross = false;
+        blockpres = false;
     }
-    // check for invalid gag usage & use fires
-    for (size_t i = 0; i < gags.size(); ++i) {
-        gags[i].target = director[i];
-        cogset.gagCheck(gags[i]);
+    // check if all spots have been covered
+    if (quickhand) {
+        throw invalid_argument("Not enough gags are supplied as required by the quickhand strategy");
     }
-    if (cross) {
-        sort(gags.begin(), gags.end(), CrossGagComparator());
-    } else {
-        sort(gags.begin(), gags.end(), GagComparator());
+    // after while finishes (reached end), if any directors in stack, apply
+    // resolve cross targets
+    while (!director.empty()) {
+        gags[crossApplyIndex].target = director.front();
+        director.pop_front();
+        ++crossApplyIndex;
     }
+    // check invalid gag usages
+    for (const Gag& gag : gags) {
+        cogset.gagCheck(gag);
+    }
+    sort(gags.begin(), gags.end(), GagComparator());
     return gags;
 }
 
@@ -273,16 +355,11 @@ Gag Battle::parseGag(string command) {
         pr = true;
         ss >> gag_name;
     }
-    if (!gc.contains(gag_name) && gag_name != "PASS" && gag_name != "FIRE") {
-        throw invalid_argument("Unrecognized gag!");
+    if (!gc.contains(gag_name) && gag_name != "PASS") {
+        throw invalid_argument("Unrecognized gag \"" + gag_name + "\"");
     }
     if (gag_name != "PASS") {
-        if (gag_name != "FIRE") {
-            gagchoice = gc.get(gag_name);
-        } else {
-            gagchoice.kind = GagKind::FIRE;
-            gagchoice.damage = 0;
-        }
+        gagchoice = gc.get(gag_name);
         if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos)
             || gagchoice.kind == GagKind::SOUND || gc.isSOS(gag_name)) {
             gagchoice.target = -1;
@@ -302,7 +379,7 @@ Gag Battle::parseGag(string command) {
                 }
             } else if (posDefinition.find(target) != posDefinition.end()) {
                 if (posDefinition[target] >= (int)cogset.getSize()) {
-                    throw invalid_argument("Invalid position");
+                    throw invalid_argument("Invalid position for \"" + gag_name + "\"");
                 }
                 gagchoice.target = posDefinition[target];
             } else {
@@ -315,19 +392,16 @@ Gag Battle::parseGag(string command) {
                     }
                 }
                 if (!directed) {
-                    throw invalid_argument("Unrecognized target");
+                    throw invalid_argument("Position not supplied for \"" + gag_name + "\"");
                 }
             }
         }
-    } else {
-        gagchoice.target = -1;
     }
     gagchoice.prestiged = pr;
     // check for invalid gag usage
     cogset.gagCheck(gagchoice);
     return gagchoice;
 }
-
 
 void Battle::battle() {
     string strat;
@@ -368,6 +442,9 @@ void Battle::battle() {
                     } else if (strat == "UNDO" && toonIndex > 1) {
                         gags.pop_back();
                         --toonIndex;
+                    } else if (strat == "ALLPASS") {
+                        gags.clear();
+                        break;
                     } else if (strat == "SKIP" || strat == "DELETE" || strat == "FIREALL") {
                         for (size_t i = 0; i < cogset.getSize(); ++i) {
                             gags.push_back(Gag(GagKind::FIRE, 0, i, false));
@@ -383,7 +460,7 @@ void Battle::battle() {
                     }
                 }
                 if (strat != "END") {
-                    sort(gags.begin(), gags.end(), OrderedGagComparator());
+                    sort(gags.begin(), gags.end(), GagComparator());
                     turn(gags);
                     break;
                 }

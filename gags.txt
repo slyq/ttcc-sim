@@ -38,7 +38,7 @@ seltzer 30 95 3
 hose 56 95 3
 cloud 80 95 4
 geyser 115 95 4
-buzzer 3 30
+buzzer 4 30
 rug 6 30
 balloon 10 30
 kart 16 30
