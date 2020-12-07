@@ -142,7 +142,7 @@ void Cogset::apply(const vector<int>& affected, GagKind gk) {
 }
 
 void Cogset::gagCheck(const Gag& gagchoice) const {
-    if (gagchoice.target >= (int)cogs.size()) {
+    if (gagchoice.target < -2 || gagchoice.target >= (int)cogs.size()) {
         throw invalid_argument("Out of bounds");
     }
     size_t trapcount = 0;
@@ -407,6 +407,7 @@ void Cogset::squirtTurn(const vector<Gag>& squirts) {
 
 void Cogset::zapTurn(const vector<Gag>& zaps) {
     vector<vector<int>> allDamages;
+    vector<int> sumDamages(cogs.size(), 0);
     // keep track of cogs that have been jumped in the same turn
     vector<bool> jumped(cogs.size(), false);
     // obtain soaked cogs valid for zapping
@@ -421,34 +422,34 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
                 damages[i] += g.damage * 3;
             }
             // TODO: double check how sos zap + regular zap work
+        } else if (!soaked[g.target] || cogs[g.target].getHP() == 0) {
+            // starting on a dry cog or a cog that was dead before the zap turn
+            if (cogs[g.target].getHP()) {
+                damages[g.target] += g.damage;
+            }
         } else {
             // examine each zap's effect on all cogs (avoid recalculating on the same cog)
             vector<bool> examined(cogs.size(), false);
-            size_t jump_count = 0;
-            size_t examine_count = 0;
-            int targ = g.target;
-            bool initialJumpedState = jumped[g.target];
-            char dir = -1;      // -1 left, 1 right
-            int lasttarg = -1;  // keeps track of last cog hit (zap cannot jump more than two spaces)
+            size_t hitCount = 0, examineCount = 0;
+            int targ = g.target, lastTarget = g.target;
+            char dir = -1;        // -1 left, 1 right
             float dropoff = g.prestiged ? 0.5 : 0.75;
-            while (jump_count < 3 && examine_count < cogs.size() && (lasttarg == -1 || abs(targ - lasttarg) <= 2)) {
+            while (hitCount < 3 && examineCount < cogs.size() && abs(targ - lastTarget) <= 2) {
                 // keep checking until jump count limit reached, all cogs examined, or zap fails to jump
-                if (jump_count == 0 && (!soaked[targ] || cogs[targ].getHP() == 0)) {  // starting on a dry/dead cog
-                    if (cogs[targ].getHP() != 0) {
-                        damages[targ] += g.damage;
+                if (!examined[targ]) {
+                    if (hitCount == 0) {
+                        // at this point, first cog is already determined to be zappable
+                        damages[targ] += ceil((3 - hitCount * dropoff) * g.damage);
+                        ++hitCount;
+                    } else if (!jumped[targ] && soaked[targ] && (cogs[targ].getHP() - sumDamages[targ] > 0)) {
+                        // cog is zappable - not jumped, soaked, and living after previous zaps
+                        damages[targ] += ceil((3 - hitCount * dropoff) * g.damage);
+                        jumped[targ] = true;
+                        lastTarget = targ;
+                        ++hitCount;
                     }
-                    break;
-                }
-                if ((jump_count == 0 || !jumped[targ]) && soaked[targ] && cogs[targ].getHP() != 0) {  // zappable cog
-                    damages[targ] += ceil((3 - jump_count * dropoff) * g.damage);
-                    jumped[targ] = true;
                     examined[targ] = true;
-                    lasttarg = targ;
-                    ++jump_count;
-                    ++examine_count;
-                } else if ((cogs[targ].getHP() == 0 || (targ != g.target && (jumped[targ] || !soaked[targ]))) && !examined[targ]) {  // exhausted cog
-                    ++examine_count;
-                    examined[targ] = true;
+                    ++examineCount;
                 }
                 // change direction if necessary
                 if (targ == 0) {
@@ -458,20 +459,15 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
                 }
                 targ += dir;
             }
-            // "undo" jumped for the targeted cog
-            jumped[g.target] = initialJumpedState;
         }
         allDamages.push_back(damages);
+        for (size_t i = 0; i < damages.size(); ++i) {
+            sumDamages[i] += damages[i];
+        }
     }
     // damage and print effect
-    vector<int> sumDamages(cogs.size(), 0);
     for (const vector<int>& d : allDamages) {
         attack(d);
-        for (size_t i = 0; i < d.size(); ++i) {
-            // cout << d[i] << " ";
-            sumDamages[i] += d[i];
-        }
-        // cout << endl;
     }
     if (printCogset) {
         cout << ZAPPED << "Zap" << rang::style::reset << "\t";

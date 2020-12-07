@@ -246,7 +246,7 @@ TEST_F(ParseTest, OneLineNoPres) {
         EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 80, 3, false), 1));
     }
 
-    gags = battle.parseOneliner("-xx- tv tv -X-- seltzer seltzer");
+    gags = battle.parseOneliner("-xx- tvs -X-- seltzer seltzer");
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, false), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
@@ -305,7 +305,7 @@ TEST_F(ParseTest, OneLinePres) {
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
     EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 1, true)));
 
-    gags = battle.parseOneliner("-xx- cross pres tv tv pres -X-- seltzer seltzer");
+    gags = battle.parseOneliner("-xx- cross pres tv tv pres -X-- seltzers");
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, true), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
@@ -460,7 +460,7 @@ TEST_F(BattleTest, TrapDrop) {
     EXPECT_TRUE(battle.getCogset().allDead());
 }
 
-TEST_F(BattleTest, BadTrap) {
+TEST_F(BattleTest, TrapCanceling) {
     battle.setCogset(vector<Cog>(4, 9));
     battle.setPresState(false);
 
@@ -540,6 +540,11 @@ TEST_F(BattleTest, LureKnockbackDamage) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), postHP[i]);
     }
+
+    battle.setCogset(set);
+    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
+    battle.turn(battle.parseOneliner("xxxx hose cloud cake cake"));
+    EXPECT_TRUE(battle.getCogset().allDead());
 }
 
 TEST_F(BattleTest, LureNoKnockbackDamage) {
@@ -559,16 +564,6 @@ TEST_F(BattleTest, LureNoKnockbackDamage) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), postHP[i] - 4);
     }
-}
-
-TEST_F(BattleTest, LureKnockbackKill) {
-    vector<Cog> set{Cog("6.exe"), Cog("10"), Cog("9.exe"), Cog("12")};
-    battle.setCogset(set);
-    battle.setPresState(false);
-
-    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
-    battle.turn(battle.parseOneliner("xxxx hose cloud cake cake"));
-    EXPECT_TRUE(battle.getCogset().allDead());
 }
 
 TEST_F(BattleTest, Sound) {
@@ -756,7 +751,31 @@ TEST_F(BattleTest, Zap) {
     }
 }
 
-TEST_F(BattleTest, ZapStandardCombos) {
+TEST_F(BattleTest, ZapStandardCombosPreSoaked) {
+    battle.setPresState(true);
+    map<string,vector<int>> expectedResults = {
+        {"x-x- tv tv", {200, 100, 220, 80}},
+        {"x-x- tesla tv", {278, 100, 285, 132}},
+        {"xx-- tesla tesla", {363, 363, 132, 132}},
+        {"-xx- tv taser", {48, 180, 172, 80}},
+        {"-xx- cross tv tv", {100, 220, 200, 80}},
+        {"-xx- cross lightning tesla", {165, 398, 372, 160}},
+    };
+    for (auto& pair : expectedResults) {
+        battle.setCogset(vector<Cog>(4, 23));
+        // soak all
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            battle.getCogset().getCog(i).setSoaked(2);
+        }
+        battle.turn(battle.parseOneliner(pair.first));
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+            EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
+        }
+    }
+}
+
+TEST_F(BattleTest, ZapStandardCombosWithSquirt) {
     battle.setPresState(true);
     map<string,vector<int>> expectedResults = {
         {"x-x- tv tv -x-x hose cloud", {200, 156, 220, 160}},
@@ -773,6 +792,154 @@ TEST_F(BattleTest, ZapStandardCombos) {
             EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
             EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
         }
+    }
+}
+
+TEST_F(BattleTest, ZapComplexCombos) {
+    battle.setPresState(true);
+    map<string,vector<int>> expectedResults = {
+        {"-x-x tvs -x-x gun hose", {100, 212, 100, 176}},
+        {"-x-x lightning tesla x-x- geyser wballoon", {315, 372, 186, 198}},
+        {"-X-- lightnings x--x cloud gun", {280, 480, 160, 212}},
+        {"--X- tv tesla x-x- seltzer hose", {110, 100, 374, 165}},
+    };
+    for (auto& pair : expectedResults) {
+        battle.setCogset(vector<Cog>(4, 23));
+        battle.turn(battle.parseOneliner(pair.first));
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+            EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
+        }
+    }
+
+    // below combos require first zap to kill two, or squirt to kill
+
+    battle.setCogset(vector<Cog>{Cog(12), Cog("12.exe"), Cog(11), Cog(11)});
+    // 200 298 160 165
+    battle.turn(battle.parseOneliner("xx-- cross tesla tv x-x- clouds"));
+    EXPECT_TRUE(battle.getCogset().allDead());
+
+    battle.setCogset(vector<Cog>{Cog(15), Cog("14.exe"), Cog(13), Cog(11)});
+    // 278 363 212 165
+    battle.turn(battle.parseOneliner("xx-- cross teslas x-x- clouds"));
+    EXPECT_TRUE(battle.getCogset().allDead());
+
+    battle.setCogset(vector<Cog>{Cog(13), Cog("14.exe"), Cog(7), Cog("14.exe")});
+    // 212 363 80 363
+    battle.turn(battle.parseOneliner("-x-x teslas x-x- clouds"));
+    EXPECT_TRUE(battle.getCogset().allDead());
+
+    battle.setCogset(vector<Cog>{Cog("14.exe"), Cog(7), Cog("14.exe"), Cog(13)});
+    // 363 80 363 212
+    battle.turn(battle.parseOneliner("x-x- cross teslas -x-x clouds"));
+    EXPECT_TRUE(battle.getCogset().allDead());
+
+    battle.setCogset(vector<Cog>{Cog(14), Cog("14.exe"), Cog(13), Cog("10.exe")});
+    // 245 363 212 198
+    battle.turn(battle.parseOneliner("-x-x cross teslas x-x- clouds"));
+    EXPECT_TRUE(battle.getCogset().allDead());
+}
+
+TEST_F(BattleTest, ZapMoreComplexCombos) {
+    battle.setPresState(true);
+    map<string,vector<int>> tripleZaps = {
+        {"xX-- tvs", {220, 340, 80, 100}},
+        {"xX-- cross tvs", {220, 340, 80, 100}},
+        {"xX-- tesla tvs", {298, 405, 80, 100}},
+        {"xX-- tv teslas", {285, 496, 80, 165}},
+        {"tv mid-left tesla left tesla mid-left", {298, 483, 80, 165}},
+        {"tv mid-left tesla mid-right tesla mid-left", {100, 483, 278, 165}},
+        {"-X-x 2 teslas lightning", {165, 596, 132, 405}},
+        {"x-X- taser taser taser", {120, 60, 204, 60}},
+    };
+    for (auto& pair : tripleZaps) {
+        battle.setCogset(vector<Cog>(4, {"23.exe"}));
+        // soak all
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            battle.getCogset().getCog(i).setSoaked(2);
+        }
+        battle.turn(battle.parseOneliner(pair.first));
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+            EXPECT_EQ(900 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
+        }
+    }
+}
+
+TEST_F(BattleTest, ZapQuestionableCombos) {
+    battle.setPresState(true);
+    map<string,vector<int>> expectedResults = {
+        {"x-x- cross tvs", {220, 100, 200, 0}},
+        {"x--x teslas", {198, 132, 165, 198}},
+        {"x--x cross teslas", {198, 165, 132, 198}},
+        {"X--- taser tv", {192, 60, 48, 0}},
+        {"---X lightning tv", {0, 80, 100, 360}},
+        {"3 tv mid-left", {100, 360, 80, 100}},
+    };
+    for (auto& pair : expectedResults) {
+        battle.setCogset(vector<Cog>(4, 23));
+        // soak all
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            battle.getCogset().getCog(i).setSoaked(2);
+        }
+        battle.turn(battle.parseOneliner(pair.first));
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+            EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
+        }
+    }
+}
+
+TEST_F(BattleTest, Throw) {
+    battle.setCogset(vector<Cog>(4, 18));
+    battle.setPresState(false);
+    int expectedResults[4] = {11, 87, 72, 327};
+    battle.turn(battle.parseOneliner("xxXX fruitslice pres cream 2 bdayslices pres cake wedding"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
+    }
+
+    battle.setCogset(vector<Cog>(2, 18));
+    battle.turn(battle.parseOneliner("4 fruit left 4 pres fruit right"));
+    EXPECT_EQ(380 - battle.getCogset().getCog(0).getHP(), 216);
+    EXPECT_EQ(380 - battle.getCogset().getCog(1).getHP(), 250);
+}
+
+TEST_F(BattleTest, Drop) {
+    battle.setCogset(vector<Cog>(4, 18));
+    battle.setPresState(false);
+    int expectedResults[4] = {35, 55, 250, 183};
+    battle.turn(battle.parseOneliner("xxXX bowling pres anvil pot boulder weight pres anvil"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
+    }
+    // non pres combo damages
+    int comboDamages[4] = {55, 143, 231, 330};
+    battle.setCogset(vector<Cog>(4, 18));
+    battle.turn(battle.parseOneliner("anvil left 2 anvil mid-left 3 anvil mid-right 4 anvil right"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), comboDamages[i]);
+    }
+    // mix pres combo damages
+    int mixComboDamages1[3] = {149, 240, 248};
+    battle.setCogset(vector<Cog>(3, 18));
+    battle.turn(battle.parseOneliner("anvil left pres anvil left 2 anvil mid pres anvil mid anvil right 2 pres anvil right"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), mixComboDamages1[i]);
+    }
+    int mixComboDamages2[3] = {341, 352, 363};
+    battle.setCogset(vector<Cog>(3, 18));
+    battle.turn(battle.parseOneliner("3 anvil left pres anvil left 2 anvil mid 2 pres anvil mid anvil right 3 pres anvil right"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), mixComboDamages2[i]);
+    }
+    // pres combo damages
+    int presComboDamages[4] = {55, 154, 256, 374};
+    battle.setCogset(vector<Cog>(4, 18));
+    battle.setPresState(true);
+    battle.turn(battle.parseOneliner("anvil left 2 anvil mid-left 3 anvil mid-right 4 anvil right"));
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), presComboDamages[i]);
     }
 }
 

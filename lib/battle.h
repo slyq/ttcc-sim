@@ -36,7 +36,7 @@ public:
     void setInputState(bool inputState) { lineInput = inputState; }
     void setPrint(bool printState) { cogset.setPrint(printState); }
 
-    Cogset getCogset() { return cogset; }
+    Cogset& getCogset() { return cogset; }
     void setCogset(std::vector<Cog> set) { cogset = Cogset(set); }
     std::vector<Gag> parseOneliner(std::string strat);
     Gag parseGag(std::string command);
