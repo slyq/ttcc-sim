@@ -15,31 +15,42 @@ using namespace std;
 
 Battle::Battle(string file_path) : gc(GagCollection::read(file_path)) {}
 
-Battle::Battle(string file_path, const queue<int>& set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
+Battle::Battle(string file_path, const queue<Cog>& cogQueue) : loader(cogQueue), gc(GagCollection::read(file_path)) { cogset.load(loader); }
 
 Battle::Battle(string file_path, const vector<Cog>& set) : cogset(Cogset(set)), gc(GagCollection::read(file_path)) {}
 
 void Battle::generate() {
     srand(time(NULL));
-    queue<int> set;
-    size_t min_level = 7;
-    size_t max_level = 15;
-    if (rand() % 2 == 0) {
-        set.push(rand() % (min_level / 2) + min_level);
+
+    size_t minLevel = 7;
+    size_t maxLevel = 15;
+    vector<Cog> startingSet;
+    int startingSize = rand() % 4 + 1; // 4 if ceo
+    if (startingSize > 1) {
+        // [small] [small] max small
+        for (int i = 0; i < startingSize - 2; ++i) {
+            startingSet.push_back(Cog(rand() % (minLevel / 2) + minLevel, rand() % 100 + 1 < EXE_CHANCE));
+        }
+        startingSet.push_back(maxLevel);
+        startingSet.push_back(Cog(rand() % (minLevel / 2) + minLevel, rand() % 100 + 1 < EXE_CHANCE));
+    } else {
+        startingSet.push_back(maxLevel);
     }
-    set.push(max_level);
+    cogset = Cogset(startingSet);
+
+    queue<Cog> cogQueue;
     for (size_t repeat = 0; repeat < 3; ++repeat) {
-        for (size_t i = min_level; i < max_level; ++i) {
+        for (size_t i = minLevel; i < maxLevel; ++i) {
             int random = rand() % 4;
             if (random > 0) {
-                set.push(i);
+                cogQueue.push(Cog(i, rand() % 100 + 1 < EXE_CHANCE));
             }
             if (random > 1) {
-                set.push(i);
+                cogQueue.push(Cog(i, rand() % 100 + 1 < EXE_CHANCE));
             }
         }
     }
-    cogset = Cogset(set);
+    loader = cogQueue;
 }
 
 void Battle::turn(vector<Gag> strat) {
@@ -93,7 +104,7 @@ void Battle::turn(vector<Gag> strat) {
             }
         }
     }
-    cogset.load();
+    cogset.load(loader);
     cogset.update();
     posDefinition["right"] = cogset.getSize() - 1;
 }
@@ -405,67 +416,108 @@ Gag Battle::parseGag(string command) {
 
 void Battle::battle() {
     string strat;
-    while (cogset.getSize() != 0 && strat != "END") {
-        // print cogs
-        cout << endl << "\t" << cogset << endl << endl;
-        do {
-            // get player strategy
-            if (lineInput) {  // one liner
-                cout << PROMPT << "Your strategy: " << rang::style::reset;
-                getline(cin, strat);
-                if (strat == "END") {
-                    cout << "Force stop" << endl;
-                } else if (strat == "SKIP" || strat == "DELETE" || strat == "FIREALL") {
-                    vector<Gag> gags;
-                    for (size_t i = 0; i < cogset.getSize(); ++i) {
-                        gags.push_back(Gag(GagKind::FIRE, 0, i, false));
+    deque<Battle> battleHistory;
+    deque<vector<Gag>> gagHistory;
+    bool doTurn = false;
+    vector<Gag> gags;
+    size_t numToons = 4;
+    size_t toonIndex = 1;
+
+    while (cogset.getSize() != 0) {
+        if (toonIndex == 1) {
+            // print cogs
+            cout << endl << ">>\t" << cogset << endl << endl;
+        }
+        if (lineInput) {  // one liner
+            cout << PROMPT << "Your strategy: " << rang::style::reset;
+        } else {
+            cout << PROMPT << "Toon " << toonIndex << ": " << rang::style::reset;
+        }
+        getline(cin, strat);
+        if (strat == "END") {
+            cout << "Force stop" << endl;
+            break;
+        } else if (strat == "HISTORY") {
+            for (int i = 0; i < 20; ++i) {
+                cout << '-' << '=';
+            }
+            cout << endl;
+            for (size_t i = 0; i < gagHistory.size(); ++i) {
+                cout << "TURN " << i + 1 << endl;
+                Battle b = battleHistory[i];
+                cout << ">>\t" << b.cogset << endl;
+                b.turn(gagHistory[i]);
+                cout << string(40, '-') << endl;
+            }
+        } else if (strat.find("REVERT") != string::npos) {
+            if (strat == "REVERT") {
+                if (battleHistory.size() > 0) {
+                    *this = battleHistory.back();
+                    battleHistory.pop_back();
+                    gagHistory.pop_back();
+                } else {
+                    cerr << "Cannot revert any further" << endl;
+                }
+            } else {
+                try {
+                    size_t revertTurn = stoi(strat.substr(strat.find("REVERT") + 7));
+                    if (revertTurn <= 0 || revertTurn >= battleHistory.size()) {
+                        cerr << "Turn number out of bounds" << endl;
+                        continue;
                     }
-                    turn(gags);
-                    break;
+                    while (battleHistory.size() >= revertTurn) {
+                        *this = battleHistory.back();
+                        battleHistory.pop_back();
+                        gagHistory.pop_back();
+                    }
+                } catch (const invalid_argument& e) {
+                    cerr << "Invalid turn number" << endl;
+                }
+            }
+        } else if (strat == "SKIP" || strat == "DELETE" || strat == "FIREALL") {
+            for (size_t i = 0; i < cogset.getSize(); ++i) {
+                gags.push_back(Gag(GagKind::FIRE, 0, i, false));
+            }
+            doTurn = true;
+        } else if (strat == "ALLPASS") {
+            gags.clear();
+            doTurn = true;
+        } else {
+            // parse specific command
+            if (lineInput) {
+                try {
+                    gags = parseOneliner(strat);
+                    doTurn = true;
+                } catch (const invalid_argument& e) {
+                    cerr << e.what() << endl;
+                }
+            } else {
+                if (strat == "UNDO" && toonIndex > 1) {
+                    gags.pop_back();
+                    --toonIndex;
                 } else {
                     try {
-                        turn(parseOneliner(strat));
-                        break;
+                        gags.push_back(parseGag(strat));
+                        if (++toonIndex == numToons) {
+                            doTurn = true;
+                            toonIndex = 1;
+                            sort(gags.begin(), gags.end(), GagComparator());
+                        }
                     } catch (const invalid_argument& e) {
                         cerr << e.what() << endl;
                     }
                 }
-            } else {  // individual toon directing
-                vector<Gag> gags;
-                size_t numtoons = 4;
-                size_t toonIndex = 1;
-                while (toonIndex <= numtoons && strat != "END") {
-                    cout << PROMPT << "Toon " << toonIndex << ": " << rang::style::reset;
-                    getline(cin, strat);
-                    if (strat == "END") {
-                        cout << "Force stop" << endl;
-                    } else if (strat == "UNDO" && toonIndex > 1) {
-                        gags.pop_back();
-                        --toonIndex;
-                    } else if (strat == "ALLPASS") {
-                        gags.clear();
-                        break;
-                    } else if (strat == "SKIP" || strat == "DELETE" || strat == "FIREALL") {
-                        for (size_t i = 0; i < cogset.getSize(); ++i) {
-                            gags.push_back(Gag(GagKind::FIRE, 0, i, false));
-                        }
-                        break;
-                    } else {
-                        try {
-                            gags.push_back(parseGag(strat));
-                            ++toonIndex;
-                        } catch (const invalid_argument& e) {
-                            cerr << e.what() << endl;
-                        }
-                    }
-                }
-                if (strat != "END") {
-                    sort(gags.begin(), gags.end(), GagComparator());
-                    turn(gags);
-                    break;
-                }
             }
-        } while (strat != "END");
+        }
+
+        if (doTurn) {
+            gagHistory.push_back(gags);
+            battleHistory.push_back(*this);
+            turn(gags);
+            // reset
+            gags.clear();
+            doTurn = false;
+        }
     }
     if (cogset.getSize() == 0) {
         cout << "You did it!" << endl;

@@ -5,8 +5,11 @@
 #include "gag_collection.h"
 #include <iostream>
 #include <map>
+#include <queue>
 #include <stdexcept>
 #include <vector>
+
+#define EXE_CHANCE 30
 
 struct GagComparator {
     bool operator()(const Gag& first, const Gag& second) const { return first.damage <= second.damage; }
@@ -16,10 +19,11 @@ class Battle {
 public:
     Battle() {}
     Battle(std::string file_path);
-    Battle(std::string file_path, const std::queue<int>& set);
+    Battle(std::string file_path, const std::queue<Cog>& cogQueue);
     Battle(std::string file_path, const std::vector<Cog>& set);
     Battle& operator=(const Battle& other) {
         cogset = other.cogset;
+        loader = other.loader;
         posDefinition = other.posDefinition;
         autoPres = other.autoPres;
         autoHit = other.autoHit;
@@ -45,6 +49,7 @@ public:
 
 private:
     Cogset cogset;
+    std::queue<Cog> loader;
     GagCollection gc;
     std::map<std::string, int> posDefinition = {
         {"left", 0},

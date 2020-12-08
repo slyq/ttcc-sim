@@ -10,10 +10,10 @@
 class Cogset {
 public:
     Cogset() {}
-    Cogset(std::queue<int>);
     Cogset(std::vector<Cog> set) : cogs(set) {}
     Cogset& operator=(const Cogset& other);
     void load();
+    void load(std::queue<Cog>& q);
     void update();
     size_t getSize() const { return cogs.size(); }
     Cog& getCog(int pos);
@@ -40,9 +40,7 @@ public:
     void setUpdate(bool updateState) { roundUpdate = updateState; }
 
 private:
-    std::queue<int> q;
     std::vector<Cog> cogs;
-    const double EXE_CHANCE = 30;
     bool printCogset = true;
     bool roundUpdate = false;
 };

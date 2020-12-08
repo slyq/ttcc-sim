@@ -943,6 +943,41 @@ TEST_F(BattleTest, Drop) {
     }
 }
 
+TEST_F(BattleTest, DropSOS) {
+    battle.setCogset(vector<Cog>(4, 23));
+    battle.setPresState(false);
+
+    map<string,vector<int>> expectedResults = {
+        {"rain pot left", {42, 30, 30, 30}},
+        {"rain 3 sandbag right", {60, 60, 60, 120}},
+        {"rain pot mid-left sandbag mid-left weight mid-left", {86, 198, 86, 86}},
+        {"rain 2 safe mid-right anvil mid-right", {183, 183, 488, 183}},
+        {"rain 3 piano left", {1020, 360, 360, 360}},
+        {"ned boulder left safe left weight left", {765, 380, 380, 380}},
+        {"franz 3 boulder left", {1080, 540, 540, 540}},
+        {"bessie 2 piano right", {484, 484, 484, 924}},
+
+        {"rain pres pot left", {44, 32, 32, 32}},
+        {"rain pres sandbag right sandbag right", {47, 47, 47, 87}},
+        {"rain pres pot mid-left sandbag mid-left weight mid-left", {93, 205, 93, 93}},
+        {"rain 2 pres safe mid-right anvil mid-right", {215, 215, 520, 215}},
+        {"rain 3 pres piano left", {1122, 462, 462, 462}},
+        {"bessie 2 pres boulder right", {510, 510, 510, 870}},
+
+        {"rain pot left pot right bowling left", {77, 30, 30, 42}},
+        {"rain pot right pot left bowling left", {94, 47, 47, 59}},
+        {"rain 2 anvil left sandbag mid-left", {142, 52, 32, 32}},
+        {"rain bowling mid-left 2 pot right", {38, 73, 38, 62}},
+    };
+    for (auto& pair : expectedResults) {
+        battle.setCogset(vector<Cog>(4, {"30.exe"}));
+        battle.turn(battle.parseOneliner(pair.first));
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            EXPECT_EQ(1488 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
+        }
+    }
+}
+
 TEST_F(BattleTest, InvalidMove) {
     vector<Cog> set{Cog("14"), Cog("14"), Cog("14"), Cog("14")};
     battle.setCogset(set);

@@ -67,12 +67,14 @@ For cog sets larger than 1, the specified target can be a 0-indexed position (pr
 | `mid-right` | third cog     |
 | `right`     | rightmost cog |
 
-### Non-gag commands:
+### Other commands:
 | command                   | meaning                                                    |
 |---------------------------|------------------------------------------------------------|
 | `UNDO`                    | undo last toon's choice (**only for individual commands**) |
 | `PASS`                    | pass a toon's turn (**only for individual commands**)      |
-| `ALLPASS`                 | all toons pass (**only for individual commands**)          |
+| `HISTORY`                 | list history of turns                                      |
+| `REVERT [#]`              | revert a turn - if # supplied, reverts to before that turn |
+| `ALLPASS`                 | all toons pass                                             |
 | `fire <target>`           | fire the targeted cog (can treat this like a normal gag)   |
 | `DELETE`/`FIREALL`/`SKIP` | fire all cogs                                              |
 | `END`                     | quit the program                                           |
