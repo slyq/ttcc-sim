@@ -84,7 +84,7 @@ TEST_F(GagCollectionTest, GagInfo) {
 
 class CogTest : public testing::Test {
 protected:
-    CogTest() : cogs({Cog(), Cog(1), Cog(1, true), Cog(12), Cog(18, true)}) {}
+    CogTest() : cogs({Cog(), Cog(1), Cog("1.exe"), Cog(12), Cog("18.exe"), Cog("12v2"), Cog("18.exev2")}) {}
     virtual ~CogTest() {}
     vector<Cog> cogs;
     testing::AssertionResult verifyCog(Cog& cog, string name, int hp);
@@ -92,10 +92,10 @@ protected:
 
 testing::AssertionResult CogTest::verifyCog(Cog& cog, string name, int hp) {
     if (cog.getLevelName() != name) {
-        return testing::AssertionFailure() << "Cog level name is incorrect!";
+        return testing::AssertionFailure() << "Cog level name is incorrect! Was " << cog.getLevelName() << ", expected " << name;
     }
     if (cog.getHP() != hp) {
-        return testing::AssertionFailure() << "Cog hp is incorrect!";
+        return testing::AssertionFailure() << "Cog hp is incorrect! Was " << cog.getHP() << ", expected " << hp;
     }
     return testing::AssertionSuccess();
 }
@@ -106,6 +106,8 @@ TEST_F(CogTest, CogInit) {
     EXPECT_TRUE(verifyCog(cogs[2], "1.exe", 9));
     EXPECT_TRUE(verifyCog(cogs[3], "12", 182));
     EXPECT_TRUE(verifyCog(cogs[4], "18.exe", 570));
+    EXPECT_TRUE(verifyCog(cogs[5], "12v2", 182));
+    EXPECT_TRUE(verifyCog(cogs[6], "18.exev2", 570));
     for (const Cog& cog : cogs) {
         EXPECT_FALSE(cog.getTrap());
         EXPECT_FALSE(cog.getLured());
@@ -122,10 +124,20 @@ TEST_F(CogTest, HPUpdate) {
     EXPECT_TRUE(verifyCog(cogs[2], "1.exe", 0));
     EXPECT_TRUE(verifyCog(cogs[3], "12", 132));
     EXPECT_TRUE(verifyCog(cogs[4], "18.exe", 520));
+    EXPECT_TRUE(verifyCog(cogs[5], "12v2", 132));
+    EXPECT_TRUE(verifyCog(cogs[6], "18.exev2", 520));
+
+    cogs[5].hit(1000);
+    EXPECT_TRUE(verifyCog(cogs[5], "12v^", 91));
+    cogs[5].hit(1000);
+    EXPECT_TRUE(verifyCog(cogs[5], "12v^", 0));
+    cogs[6].hit(520);
+    cogs[6].hit(285);
+    EXPECT_TRUE(verifyCog(cogs[6], "18.exev^", 0));
 }
 
 TEST_F(CogTest, TrapUpdate) {
-    int traps[2] = {20, 240};
+    int traps[3] = {20, 240, 140};
     for (size_t i = 1; i < cogs.size(); i += 2) {
         cogs[i].setTrap(traps[i / 2]);
     }
@@ -137,19 +149,19 @@ TEST_F(CogTest, TrapUpdate) {
         }
     }
 
-    // -1 -2 3 4 5 (-2 and 4 --> 0 because of trap)
+    // -1 -2 3 4 5 6 7 (-2, 4, and 6 --> 0 because of trap)
     for (size_t i = 0; i < cogs.size(); ++i) {
         cogs[i].setLured((i + 1) * (i < 2 ? -1 : 1));
     }
-    int expectedLure[5] = {-1, 0, 3, 0, 5};
+    int expectedLure[7] = {-1, 0, 3, 0, 5, 0, 7};
     for (size_t i = 0; i < cogs.size(); ++i) {
         EXPECT_EQ(cogs[i].getLured(), expectedLure[i]);
     }
 }
 
 TEST_F(CogTest, LureSoakUpdate) {
-    // LURE: 0 -2 3 -4 5
-    // SOAK: 0 1 2 3 4
+    // LURE: 0 -2 3 -4 5 -6 7
+    // SOAK: 0 1 2 3 4 5 6
     for (size_t i = 1; i < cogs.size(); ++i) {
         cogs[i].setLured((i + 1) * (i % 2 == 0 ? 1 : -1));
         cogs[i].setSoaked(i);
@@ -158,15 +170,15 @@ TEST_F(CogTest, LureSoakUpdate) {
     for (Cog& cog : cogs) {
         cog.update();
     }
-    int expectedLure[5] = {0, -1, 2, -3, 4};
-    int expectedSoak[5] = {0, 0, 1, 2, 3};
+    int expectedLure[7] = {0, -1, 2, -3, 4, -5, 6};
+    int expectedSoak[7] = {0, 0, 1, 2, 3, 4, 5};
     for (size_t i = 0; i < cogs.size(); ++i) {
         EXPECT_EQ(cogs[i].getLured(), expectedLure[i]);
         EXPECT_EQ(cogs[i].getSoaked(), expectedSoak[i]);
     }
 
     for (Cog& cog : cogs) {
-        for (char repeat = 0; repeat < 5; ++repeat) {
+        for (char repeat = 0; repeat < 6; ++repeat) {
             cog.update();
         }
     }
@@ -581,22 +593,22 @@ TEST_F(BattleTest, Sound) {
 
     // high-low tests
     // 9.exes still live because not all pres
-    vector<Cog> set(3, {9, true});
-    set.push_back(Cog(15, true));
+    vector<Cog> set(3, {"9.exe"});
+    set.push_back(Cog("15.exe"));
     battle.setCogset(set);
     battle.setPresState(false);
     battle.turn(battle.parseOneliner("fog 2 pres trunk"));
     EXPECT_EQ(battle.getCogset().getSize(), 4);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 9);
     // 9.exes still live because max lvl is not high enough
-    set[3] = Cog(14, true);
+    set[3] = Cog("14.exe");
     battle.setCogset(set);
     battle.setPresState(true);
     battle.turn(battle.parseOneliner("fog 2 trunk"));
     EXPECT_EQ(battle.getCogset().getSize(), 4);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 3);
     // 9.exes are destroyed
-    set[3] = Cog(15, true);
+    set[3] = Cog("15.exe");
     battle.setCogset(set);
     battle.turn(battle.parseOneliner("fog 2 trunk"));
     EXPECT_EQ(battle.getCogset().getSize(), 1);
@@ -606,14 +618,14 @@ TEST_F(BattleTest, Sound) {
 TEST_F(BattleTest, SoundOther) {
     // sound + throw
     vector<Cog> set(3, 8);
-    set.push_back(Cog(8, true));
+    set.push_back(Cog("8.exe"));
     battle.setCogset(set);
     battle.setPresState(false);
     battle.turn(battle.parseOneliner("3 pres aoogah fruit right"));
     EXPECT_TRUE(battle.getCogset().allDead());
     // sound + drop
     set = vector<Cog>(3, 11);
-    set.push_back(Cog(14, true));
+    set.push_back(Cog("14.exe"));
     battle.setCogset(set);
     battle.setPresState(true);
     battle.turn(battle.parseOneliner("fog 2 trunk piano right"));
@@ -743,7 +755,7 @@ TEST_F(BattleTest, Zap) {
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), (i == 3 ? 186 : postSoakHP[i] - taser[i] - taserP[2-i] - taser[(4-i)%3]) - 70);
     }
 
-    battle.setCogset(vector<Cog>(4, {13, true}));
+    battle.setCogset(vector<Cog>(4, {"13.exe"}));
     battle.turn(battle.parseOneliner("sid nat"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());

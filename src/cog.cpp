@@ -10,22 +10,33 @@ Cog& Cog::operator=(const Cog& other) {
     lured = other.lured;
     soaked = other.soaked;
     executive = other.executive;
+    version = other.version;
     return *this;
 }
 
 std::string Cog::getLevelName() const {
-    if (level == 0) {
-        return "";
-    } else if (executive) {
-        return std::to_string(level) + ".exe";
+    if (level == 0) return "";
+    std::string name = std::to_string(level);
+    if (executive) {
+        name += ".exe";
     }
-    return std::to_string(level);
+    if (version > 1) {
+        name += "v" + std::to_string(version);
+    } else if (version == 1) {
+        name += "v^";
+    }
+    return name;
 }
 
 void Cog::hit(int damage) {  // deal raw damage
     hp -= damage;
-    if (hp < 0) {
-        hp = 0;
+    if (hp <= 0) {
+        if (version == 2) {
+            version = 1;
+            hp = maxHP/2;
+        } else {
+            hp = 0;
+        }
     }
 }
 
@@ -77,11 +88,8 @@ std::ostream& operator<<(std::ostream& out, const Cog& cog) {
     if (cog.hp == 0) {
         out << DEAD;
     }
-    if (cog.level == 0) {
-    } else if (cog.executive) {
-        out << "Level " << std::to_string(cog.level) << ".exe: " << cog.hp;
-    } else {
-        out << "Level " << std::to_string(cog.level) << ": " << cog.hp;
+    if (cog.level != 0) {
+        out << "Level " << cog.getLevelName() << ": " << cog.hp;
     }
     out << rang::style::reset;
     if (cog.trapped && cog.hp != 0) {

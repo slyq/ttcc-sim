@@ -29,12 +29,12 @@ void Battle::generate() {
     if (startingSize > 1) {
         // [small] [small] max small
         for (int i = 0; i < startingSize - 2; ++i) {
-            startingSet.push_back(Cog(rand() % (minLevel / 2) + minLevel, rand() % 100 + 1 < EXE_CHANCE));
+            startingSet.push_back(Cog(rand() % (minLevel / 2) + minLevel, rand() % 100 + 1 < EXE_CHANCE, 0));
         }
-        startingSet.push_back(maxLevel);
-        startingSet.push_back(Cog(rand() % (minLevel / 2) + minLevel, rand() % 100 + 1 < EXE_CHANCE));
+        startingSet.push_back(Cog(maxLevel));
+        startingSet.push_back(Cog(rand() % (minLevel / 2) + minLevel, rand() % 100 + 1 < EXE_CHANCE, 0));
     } else {
-        startingSet.push_back(maxLevel);
+        startingSet.push_back(Cog(maxLevel));
     }
     cogset = Cogset(startingSet);
 
@@ -43,10 +43,10 @@ void Battle::generate() {
         for (size_t i = minLevel; i < maxLevel; ++i) {
             int random = rand() % 4;
             if (random > 0) {
-                cogQueue.push(Cog(i, rand() % 100 + 1 < EXE_CHANCE));
+                cogQueue.push(Cog(i, rand() % 100 + 1 < EXE_CHANCE, 0));
             }
             if (random > 1) {
-                cogQueue.push(Cog(i, rand() % 100 + 1 < EXE_CHANCE));
+                cogQueue.push(Cog(i, rand() % 100 + 1 < EXE_CHANCE, 0));
             }
         }
     }

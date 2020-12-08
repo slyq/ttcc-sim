@@ -6,16 +6,21 @@
 
 class Cog {
 public:
-    Cog() : level(0), hp(0), trapped(0), lured(0), soaked(0), executive(false) {}
-    Cog(int lvl) : Cog(lvl, false) {}
-    Cog(int lvl, bool exe)
+    Cog() : level(0), hp(0), maxHP(0), trapped(0), lured(0), soaked(0), executive(false), version(0) {}
+    Cog(int lvl) : Cog(lvl, false, 0) {}
+    Cog(int lvl, bool exe, size_t ver)
             : level(lvl),
               hp((lvl + 1) * (lvl + 2) * (exe ? 1.5 : 1)),
+              maxHP((lvl + 1) * (lvl + 2) * (exe ? 1.5 : 1)),
               trapped(0),
               lured(0),
               soaked(0),
-              executive(exe) {}
-    Cog(std::string lvl) : Cog(std::stoi(lvl.substr(0, lvl.find("."))), lvl.find(".exe") != std::string::npos) {}
+              executive(exe),
+              version(ver) {}
+    Cog(std::string lvl)
+            : Cog(std::stoi(lvl.substr(0, lvl.find("."))),
+                  lvl.find(".exe") != std::string::npos,
+                  lvl.find("v") != std::string::npos ? std::stoi(lvl.substr(lvl.find("v") + 1)) : 0) {}
     ~Cog() {}
     Cog& operator=(const Cog& other);
     int getHP() const { return hp; }
@@ -37,10 +42,12 @@ public:
 protected:
     int level;
     int hp;
+    int maxHP;
     int trapped;
     int lured;
     int soaked;
     bool executive;
+    size_t version;
 };
 
 #endif
