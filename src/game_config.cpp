@@ -4,8 +4,6 @@
 #include <fstream>
 #include <sstream>
 
-using namespace std;
-
 enum class ParserState {
     LOOKING_FOR_KEY,    // not inside any structures at the moment, waiting for a key or a comment character
     IN_KEY,             // inside key, waiting for equals sign or whitespace
@@ -13,24 +11,24 @@ enum class ParserState {
     IN_VALUE            // inside value, waiting for newline to end it.
 };
 
-bool GameConfig::toBool(string s) {
+bool GameConfig::toBool(std::string s) {
     if (s == "1" || s == "true" || s == "on") {
         return true;
     }
     if (s == "0" || s == "false" || s == "off") {
         return false;
     }
-    throw runtime_error("invalid config");
+    throw std::runtime_error("invalid config");
 }
 
-GameConfig GameConfig::read(string file_path) {
-    ifstream file(file_path);
+GameConfig GameConfig::read(std::string file_path) {
+    std::ifstream file(file_path);
     if (!file) {
-        throw runtime_error("cannot open game config file!");
+        throw std::runtime_error("cannot open game config file!");
     }
 
-    string key_buffer;
-    string value_buffer;
+    std::string key_buffer;
+    std::string value_buffer;
     char cursor;
     ParserState state = ParserState::LOOKING_FOR_KEY;
     GameConfig config;
@@ -65,9 +63,9 @@ GameConfig GameConfig::read(string file_path) {
             if (cursor == '\n') {
                 if (key_buffer == "ALL_PRESTIGE") {
                     config.autoPres = toBool(value_buffer);
-                } else if (key_buffer == "NO_MISS") {
+                } else if (key_buffer == "PERFECT_ACC") {
                     config.autoHit = toBool(value_buffer);
-                } else if (key_buffer == "ROUND_DECAY") {
+                } else if (key_buffer == "NO_DECAY") {
                     config.roundUpdate = toBool(value_buffer);
                 } else if (key_buffer == "LINE_INPUT") {
                     config.lineInput = toBool(value_buffer);

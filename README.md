@@ -12,7 +12,7 @@ Consider the following: `hypno pres wreckingball left 2 anvil left` is valid and
 
 The order between the quickhand strategy and `cross` does not matter.
 
-To simulate all toons passing, an empty command can be supplied.
+To simulate all toons passing, the user can simply supply an empty command.
 
 For one-liners, a quickhand strategy can be used for efficiency.
 
@@ -34,7 +34,7 @@ For one-liners, a quickhand strategy can be used for efficiency.
 * if the number of gags is supplied, they will be spread out from right to left (or left to right if crossed) until all are expended
 
 ### Crossing gags
-When you specify `cross` before gags, gags of the same kind and damage will cross so that they are applied left to right.
+When the user specifies `cross` before gags, gags of the same kind and damage will cross so that they are applied left to right.
 * `x-x- pres tv tv` translates to `tv mid-right` first, then `pres tv left`
 * `x-x- cross pres tv tv` translates to `tv left` first, then `pres tv mid-right`
 
@@ -80,19 +80,21 @@ For cog sets larger than 1, the specified target can be a 0-indexed position (pr
 | `END`                     | quit the program                                           |
 
 ## Configuration
-The program is able to detect a configuration file named `conf.txt` in the same directory. If not present, the program will instead query the user for each configuration for the battle.
+The program is able to detect a configuration file named `conf.txt` in the same directory. If not present, the program will ask if the user wants to create one. Based on the response, it may store the battle configurations that it queries the user for in a new `conf.txt`.
 
 ### `conf.txt` format
-The text file can have the configurations in any order, but they must be separated by newlines and be in the format `configuration_name: option`.
+The text file can have the configurations in any order, but each configuration must be in the format `[configuration_name]:[option]`. Whitespace between configurations and between the ':' and option is optional.
 
 Below is the list of configurations that are parsed:
 
 | configuration name | description                                       | allowed values                         | default state |
 |--------------------|---------------------------------------------------|----------------------------------------|---------------|
 | all_prestige       | All gags are prestige                             | `0`, `1`, `true`, `false`, `on`, `off` | enabled       |
-| no_miss            | Gags always hit                                   | `0`, `1`, `true`, `false`, `on`, `off` | enabled       |
-| round_decay        | Lure and soak rounds count down                   | `0`, `1`, `true`, `false`, `on`, `off` | disabled      |
+| perfect_acc        | Gags always hit                                   | `0`, `1`, `true`, `false`, `on`, `off` | enabled       |
+| no_decay           | Lure and soak rounds do not count down            | `0`, `1`, `true`, `false`, `on`, `off` | enabled       |
 | line_input         | Accept input on one line instead of for each toon | `0`, `1`, `true`, `false`, `on`, `off` | enabled       |
 | gag_file           | Relative file path for the gags specifications    | a valid file path                      | gags.txt      |
 
 Any configurations not specified in the file will assume the default settings.
+
+If the program cannot find the gags specifications file, it will assume the standard maximum default for all gags.

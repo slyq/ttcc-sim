@@ -55,8 +55,8 @@ void Battle::generate() {
 
 void Battle::turn(vector<Gag> strat) {
     vector<vector<Gag>> gags;
-    size_t num_gagtracks = 8;
-    for (size_t i = 0; i < num_gagtracks + 1; ++i) {
+    size_t numTracks = 8;
+    for (size_t i = 0; i < numTracks + 1; ++i) {
         vector<Gag> gagtrack;
         gags.push_back(gagtrack);
     }
@@ -72,10 +72,10 @@ void Battle::turn(vector<Gag> strat) {
         }
     }
     // handle fires first
-    if (!gags[num_gagtracks].empty()) {
-        cogset.fireTurn(gags[num_gagtracks]);
+    if (!gags[numTracks].empty()) {
+        cogset.fireTurn(gags[numTracks]);
     }
-    for (size_t i = 0; (i < num_gagtracks && !cogset.allDead()); ++i) {
+    for (size_t i = 0; (i < numTracks && !cogset.allDead()); ++i) {
         if (!gags[i].empty()) {
             switch (i) {
             case 1:
@@ -351,6 +351,7 @@ vector<Gag> Battle::parseOneliner(string strat) {
         cogset.gagCheck(gag);
     }
     sort(gags.begin(), gags.end(), GagComparator());
+    reverse(gags.begin(), gags.end());
     return gags;
 }
 
@@ -498,10 +499,11 @@ void Battle::battle() {
                 } else {
                     try {
                         gags.push_back(parseGag(strat));
-                        if (++toonIndex == numToons) {
+                        if (++toonIndex > numToons) {
                             doTurn = true;
                             toonIndex = 1;
                             sort(gags.begin(), gags.end(), GagComparator());
+                            reverse(gags.begin(), gags.end());
                         }
                     } catch (const invalid_argument& e) {
                         cerr << e.what() << endl;
@@ -521,5 +523,12 @@ void Battle::battle() {
     }
     if (cogset.getSize() == 0) {
         cout << "You did it!" << endl;
+    }
+}
+
+void Battle::reset() {
+    cogset = Cogset();
+    while (!loader.empty()) {
+        loader.pop();
     }
 }

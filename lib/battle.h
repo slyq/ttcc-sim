@@ -12,7 +12,7 @@
 #define EXE_CHANCE 30
 
 struct GagComparator {
-    bool operator()(const Gag& first, const Gag& second) const { return first.damage <= second.damage; }
+    bool operator()(const Gag& first, const Gag& second) const { return first.damage > second.damage; }
 };
 
 class Battle {
@@ -33,6 +33,7 @@ public:
     ~Battle() {}
     void generate();
     void battle();
+    void reset();
 
     void setPresState(bool presState) { autoPres = presState; }
     void setHitState(bool hitState) { autoHit = hitState; }

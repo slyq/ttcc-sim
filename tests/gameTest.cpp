@@ -227,6 +227,8 @@ vector<Gag> ParseTest::buildStrat(const vector<string>& s) {
     for (const string& gag : s) {
         gags.push_back(battle.parseGag(gag));
     }
+    sort(gags.begin(), gags.end(), GagComparator());
+    reverse(gags.begin(), gags.end());
     return gags;
 }
 
@@ -354,12 +356,21 @@ TEST_F(ParseTest, MultLineNoPres) {
         EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 80, 3, false), 1));
     }
 
+    commands = {"tv mid-left", "tv mid-right", "seltzer mid-left", "seltzer mid-left"};
+    gags = buildStrat(commands);
+    EXPECT_EQ(gags.size(), 4);
+    EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, false), 2));
+    EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
+    EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
+    EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 1, false)));
+
     commands = {"tv mid-right", "tv mid-left", "seltzer mid-left", "seltzer mid-left"};
     gags = buildStrat(commands);
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, false), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
+    EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 1, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)));
 
     commands = {"sanjay", "rain", "PASS", "PASS"};
     gags = buildStrat(commands);
@@ -409,6 +420,7 @@ TEST_F(ParseTest, MultLinePres) {
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, true), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, true), 1));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
+    EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 1, true)) < indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)));
 }
 
 class BattleTest : public testing::Test {
@@ -749,10 +761,12 @@ TEST_F(BattleTest, Zap) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 186 : postSoakHP[i] - taser[i] - taserP[2-i] - taser[(4-i)%3]);
     }
+
+    battle.setCogset(vector<Cog>(4, 13));
     battle.turn(battle.parseOneliner("electra"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), (i == 3 ? 186 : postSoakHP[i] - taser[i] - taserP[2-i] - taser[(4-i)%3]) - 70);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 210 - 70);
     }
 
     battle.setCogset(vector<Cog>(4, {"13.exe"}));
@@ -887,6 +901,30 @@ TEST_F(BattleTest, ZapQuestionableCombos) {
         {"X--- taser tv", {192, 60, 48, 0}},
         {"---X lightning tv", {0, 80, 100, 360}},
         {"3 tv mid-left", {100, 360, 80, 100}},
+    };
+    for (auto& pair : expectedResults) {
+        battle.setCogset(vector<Cog>(4, 23));
+        // soak all
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            battle.getCogset().getCog(i).setSoaked(2);
+        }
+        battle.turn(battle.parseOneliner(pair.first));
+        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+            EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
+            EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
+        }
+    }
+}
+
+TEST_F(BattleTest, ZapWithSOS) {
+    battle.setPresState(true);
+    map<string,vector<int>> expectedResults = {
+        {"x-x- tv tv dentist", {335, 235, 355, 215}},
+        {"dentist x-x- tesla tv", {413, 235, 420, 267}},
+        {"xx-- tesla tesla electra", {573, 573, 342, 342}},
+        {"-xx- tesla taser dentist", {183, 393, 372, 267}},
+        {"-xx- cross tv tv nat", {355, 475, 455, 335}},
+        {"dentist -xx- cross lightning tesla", {300, 533, 507, 295}},
     };
     for (auto& pair : expectedResults) {
         battle.setCogset(vector<Cog>(4, 23));

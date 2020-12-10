@@ -2,55 +2,86 @@
 #include "colors.h"
 #include "game_config.h"
 #include "rang.h"
+#include <fstream>
 #include <string>
 
 using namespace std;
 
 int main() {
-    string again;
+    cout << rang::fgB::gray << "Toontown Corporate Clash Battle Simulator" << rang::style::reset << endl;
     string choice;
     bool presState;
     bool hitState;
-    bool updateState;
+    bool noDecayState;
     bool lineInput;
     string gagFile;
+    bool writeToFile = false;
     try {
         GameConfig conf = GameConfig::read("conf.txt");
         presState = conf.autoPres;
         hitState = conf.autoHit;
-        updateState = conf.roundUpdate;
+        noDecayState = conf.roundUpdate;
         lineInput = conf.lineInput;
         gagFile = conf.gagFilePath;
     } catch (const runtime_error& e) {
+        do {
+            cout << CONFIG << "No config file \"conf.txt\" found. Create one? [y/n] " << rang::style::reset;
+            getline(cin, choice);
+        } while (choice != "y" && choice != "Y" && choice != "n" && choice != "N");
+        if (choice == "y" || choice == "Y") {
+            writeToFile = true;
+        }
         // determine battle settings
         cout << CONFIG << "Assume prestige gags? [Y/n] " << rang::style::reset;
         getline(cin, choice);
         presState = (choice != "n" && choice != "N");
-        cout << CONFIG << "Assume no miss? [Y/n] " << rang::style::reset;
+        cout << CONFIG << "Assume perfect accuracy? [Y/n] " << rang::style::reset;
         getline(cin, choice);
         hitState = (choice != "n" && choice != "N");
-        cout << CONFIG << "Consider lure and soak decay? [y/N] " << rang::style::reset;
+        cout << CONFIG << "Disregard lure and soak decay? [Y/n] " << rang::style::reset;
         getline(cin, choice);
-        updateState = (choice != "y" && choice != "Y");
+        noDecayState = (choice != "n" && choice != "N");
         // determine input method
         cout << CONFIG << "Input using one-liners? (will use individual commands otherwise) [Y/n] " << rang::style::reset;
         getline(cin, choice);
         lineInput = (choice != "n" && choice != "N");
-        cout << CONFIG << "Specify the file with gag definitions [default: gags.txt] " << rang::style::reset;
-        getline(cin, choice);
-        if (choice == "") {
-            gagFile = "gags.txt";
-        } else {
-            gagFile = choice;
-        }
+        gagFile = "gags.txt";
+        cout << endl;
     }
+    // confirmation/write
+    cout << rang::fgB::yellow << "Current battle config:" << endl << "---------------------------------" << endl;
+    cout << (presState ? "A" : "Not a") << "ssuming prestige gags." << endl;
+    cout << (hitState ? "A" : "Not a") << "ssuming perfect accuracy." << endl;
+    cout << (noDecayState ? "Disregard" : "Consider") << "ing lure and soak decay." << endl;
+    cout << "Using " << (lineInput ? "one-line" : "multiple") << " commands." << endl;
+    if (gagFile != "gags.txt") {
+        cout << "Using \"" << gagFile << "\" as the gag definitions file." << endl;
+    }
+    cout << rang::style::reset << endl;
+    if (writeToFile) {
+        ofstream configFile("conf.txt");
+        configFile << "all_prestige: " << (presState ? 1 : 0) << '\n';
+        configFile << "perfect_acc: " << (hitState ? 1 : 0) << '\n';
+        configFile << "no_decay: " << (noDecayState ? 1 : 0) << "\n";
+        configFile << "line_input: " << (lineInput ? 1 : 0) << '\n';
+        configFile << "gag_file: " << gagFile << '\n';
+    }
+    // setup
+    Battle b(gagFile);
+    b.setPresState(presState);
+    b.setHitState(hitState);
+    b.setUpdate(!noDecayState);
+    b.setInputState(lineInput);
     // determine cog set
     cout << CONFIG << "Use a randomly generated cog set? [Y/n] " << rang::style::reset;
     getline(cin, choice);
     bool generate = (choice != "n" && choice != "N");
+    string again;
     do {
-        // setup
-        Battle b(gagFile);
+        if (again == "y" || again == "Y") {
+            b.reset();
+        }
+        // build cogs
         if (generate) {
             b.generate();
         } else {
@@ -61,15 +92,10 @@ int main() {
                 loader.push_back(Cog(lvl));
             }
             cin.ignore();
-            b = Battle(gagFile, loader);
+            b.setCogset(loader);
         }
-        b.setPresState(presState);
-        b.setHitState(hitState);
-        b.setUpdate(updateState);
-        b.setInputState(lineInput);
-        // run game
+
         b.battle();
-        // ask for loop
         cout << CONFIG << "Play again? [y/N] " << rang::style::reset;
         getline(cin, again);
     } while (again == "y" || again == "Y");

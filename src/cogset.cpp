@@ -403,9 +403,8 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
         vector<int> damages(cogs.size(), 0);
         if (g.target == -1) {
             for (size_t i = 0; i < damages.size(); ++i) {
-                damages[i] += g.damage * 3;
+                damages[i] += g.damage * (soaked[i] ? 3 : 1);
             }
-            // TODO: double check how sos zap + regular zap work
         } else if (!soaked[g.target] || cogs[g.target].getHP() == 0) {
             // starting on a dry cog or a cog that was dead before the zap turn
             if (cogs[g.target].getHP()) {
