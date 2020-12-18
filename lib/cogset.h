@@ -16,8 +16,10 @@ public:
     void load(std::queue<Cog>& q);
     void update();
     size_t getSize() const { return cogs.size(); }
+    const Cog& getCog(int pos) const;
     Cog& getCog(int pos);
     bool allDead() const;
+    int numLured() const;
     void gagCheck(const Gag& gagchoice) const;
 
     void attack(const std::vector<int>& affected);

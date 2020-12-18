@@ -19,8 +19,7 @@ protected:
     testing::AssertionResult verifyGag(const Gag& g, GagKind gk, string name, unsigned short damage, int accuracy);
 };
 
-testing::AssertionResult
-GagCollectionTest::verifyGag(const Gag& g, GagKind gk, string name, unsigned short damage, int accuracy) {
+testing::AssertionResult GagCollectionTest::verifyGag(const Gag& g, GagKind gk, string name, unsigned short damage, int accuracy) {
     if (g.kind != gk) {
         return testing::AssertionFailure() << "Gag kind is incorrect!";
     }
@@ -149,13 +148,15 @@ TEST_F(CogTest, TrapUpdate) {
         }
     }
 
-    // -1 -2 3 4 5 6 7 (-2, 4, and 6 --> 0 because of trap)
+    // 1 2 3* 4* 5* 6* 7* (2, 4*, and 6* --> 0 because of trap)
     for (size_t i = 0; i < cogs.size(); ++i) {
-        cogs[i].setLured((i + 1) * (i < 2 ? -1 : 1));
+        cogs[i].setLured(i + 1, i >= 2);
     }
-    int expectedLure[7] = {-1, 0, 3, 0, 5, 0, 7};
+    int expectedLure[7] = {1, 0, 3, 0, 5, 0, 7};
+    int expectedPresLure[7] = {false, false, true, false, true, false, true};
     for (size_t i = 0; i < cogs.size(); ++i) {
         EXPECT_EQ(cogs[i].getLured(), expectedLure[i]);
+        EXPECT_EQ(cogs[i].getPresLured(), expectedPresLure[i]);
     }
 }
 
@@ -163,17 +164,19 @@ TEST_F(CogTest, LureSoakUpdate) {
     // LURE: 0 -2 3 -4 5 -6 7
     // SOAK: 0 1 2 3 4 5 6
     for (size_t i = 1; i < cogs.size(); ++i) {
-        cogs[i].setLured((i + 1) * (i % 2 == 0 ? 1 : -1));
+        cogs[i].setLured(i + 1, i % 2 == 0);
         cogs[i].setSoaked(i);
     }
 
     for (Cog& cog : cogs) {
         cog.update();
     }
-    int expectedLure[7] = {0, -1, 2, -3, 4, -5, 6};
+    int expectedLure[7] = {0, 1, 2, 3, 4, 5, 6};
+    int expectedPresLure[7] = {false, false, true, false, true, false, true};
     int expectedSoak[7] = {0, 0, 1, 2, 3, 4, 5};
     for (size_t i = 0; i < cogs.size(); ++i) {
         EXPECT_EQ(cogs[i].getLured(), expectedLure[i]);
+        EXPECT_EQ(cogs[i].getPresLured(), expectedPresLure[i]);
         EXPECT_EQ(cogs[i].getSoaked(), expectedSoak[i]);
     }
 
@@ -515,8 +518,10 @@ TEST_F(BattleTest, Lure) {
 
     // xx--
     battle.turn(battle.parseOneliner("10dollar left 50dollar mid-left"));
-    EXPECT_EQ(battle.getCogset().getCog(0).getLured(), -4);
-    EXPECT_EQ(battle.getCogset().getCog(1).getLured(), -5);
+    EXPECT_EQ(battle.getCogset().getCog(0).getLured(), 4);
+    EXPECT_EQ(battle.getCogset().getCog(0).getPresLured(), false);
+    EXPECT_EQ(battle.getCogset().getCog(1).getLured(), 5);
+    EXPECT_EQ(battle.getCogset().getCog(1).getPresLured(), false);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         if (i >= 2) {
             EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
@@ -526,11 +531,14 @@ TEST_F(BattleTest, Lure) {
 
     // xxoo (does not override previous lure)
     battle.turn(battle.parseOneliner("pres bigmagnet"));
-    EXPECT_EQ(battle.getCogset().getCog(0).getLured(), -3);
-    EXPECT_EQ(battle.getCogset().getCog(1).getLured(), -4);
+    EXPECT_EQ(battle.getCogset().getCog(0).getLured(), 3);
+    EXPECT_EQ(battle.getCogset().getCog(0).getPresLured(), false);
+    EXPECT_EQ(battle.getCogset().getCog(1).getLured(), 4);
+    EXPECT_EQ(battle.getCogset().getCog(1).getPresLured(), false);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         if (i >= 2) {
             EXPECT_EQ(battle.getCogset().getCog(i).getLured(), 3);
+            EXPECT_EQ(battle.getCogset().getCog(i).getPresLured(), true);
         }
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
@@ -539,7 +547,8 @@ TEST_F(BattleTest, Lure) {
     // xoxo (single prestige override on same turn)
     battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 0 ? -3 : 7);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 0 ? 3 : 7);
+        EXPECT_EQ(battle.getCogset().getCog(i).getPresLured(), i % 2 == 0 ? false : true);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 
@@ -548,6 +557,7 @@ TEST_F(BattleTest, Lure) {
     battle.turn(battle.parseOneliner("x-x- 10dollar 5dollar pres hypno"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 1 ? 4 : (i == 0 ? 8 : 7));
+        EXPECT_EQ(battle.getCogset().getCog(i).getPresLured(), true);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 }
@@ -562,6 +572,7 @@ TEST_F(BattleTest, LureKnockbackDamage) {
     battle.turn(battle.parseOneliner("xxxx seltzer hose cream cream"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
+        EXPECT_FALSE(battle.getCogset().getCog(i).getPresLured());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), postHP[i]);
     }
 
@@ -579,13 +590,15 @@ TEST_F(BattleTest, LureNoKnockbackDamage) {
 
     battle.turn(battle.parseOneliner("x-xx anvil rake taser hypno"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i < 2 ? -4 : 0);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i < 2 ? 4 : 0);
+        EXPECT_FALSE(battle.getCogset().getCog(i).getPresLured());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), postHP[i]);
     }
 
     battle.turn(battle.parseOneliner("kazoo"));
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
+        EXPECT_FALSE(battle.getCogset().getCog(i).getPresLured());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), postHP[i] - 4);
     }
 }

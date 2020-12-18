@@ -2,7 +2,6 @@
 #define GAG_COLLECTION_H
 
 #include <map>
-#include <set>
 #include <stdexcept>
 #include <stdlib.h>
 #include <string>
@@ -23,27 +22,29 @@ enum class GagKind {
 struct Gag {
     GagKind kind;
     std::string name;
+    unsigned short level;
     unsigned short damage;
-    int accuracy;
+    unsigned short accuracy;
     int target;
     bool prestiged;
     int passiveEffect;
+    bool isSOS;
 
     Gag() : kind(GagKind::PASS), target(-1) {}
     Gag(GagKind k, unsigned short d, int t, bool p) : kind(k), damage(d), target(t), prestiged(p) {}
-    Gag(GagKind k, std::string n, unsigned short d, float a) : kind(k), name(n), damage(d), accuracy(a) {}
+    Gag(GagKind k, std::string n, unsigned short l, unsigned short d, unsigned short a, bool s) : kind(k), name(n), level(l), damage(d), accuracy(a), passiveEffect(0), isSOS(s) {}
+    Gag(GagKind k, std::string n, unsigned short l, unsigned short d, unsigned short a, int pe, bool s) : kind(k), name(n), level(l), damage(d), accuracy(a), passiveEffect(pe), isSOS(s) {}
 };
 
 class GagCollection {
 public:
     static GagCollection read(const std::string& file_path);
     bool contains(std::string name) const { return gagmap.find(name) != gagmap.end(); }
-    bool isSOS(std::string name) const { return sosset.find(name) != sosset.end(); }
-    const Gag& get(std::string name) { return gagmap[name]; }
+    bool isSOS(std::string name) const { return contains(name) && get(name).isSOS; }
+    const Gag& get(std::string name) const { return gagmap.at(name); }
 
 private:
     std::map<std::string, Gag> gagmap;
-    std::set<std::string> sosset;
 };
 
 #endif

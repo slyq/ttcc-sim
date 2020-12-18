@@ -28,8 +28,11 @@ std::string Cog::getLevelName() const {
     return name;
 }
 
-void Cog::hit(int damage) {  // deal raw damage
+void Cog::hit(int damage) {
     hp -= damage;
+    if (lured) {
+        unlure();
+    }
     if (hp <= 0) {
         if (version == 2) {
             version = 1;
@@ -40,15 +43,29 @@ void Cog::hit(int damage) {  // deal raw damage
     }
 }
 
-void Cog::setLured(int state) {
+void Cog::setLured(int state, bool pres) {
     if (trapped) {
         trapped = 0;
-    } else {
+    } else if (!lured) {
         lured = state;
+        presLured = pres;
+        currLureMax = state;
     }
 }
 
-void Cog::setSoaked(int state) {
+void Cog::unlure() {
+    lured = 0;
+    presLured = false;
+    currLureMax = 0;
+}
+
+void Cog::setSoaked(int state, bool pres) {
+    if (!soaked && pres) {
+        defense -= 20;
+        if (defense < 0) {
+            defense = 0;
+        }
+    }
     // reset if higher than current
     if (state > soaked) {
         soaked = state;
@@ -57,11 +74,33 @@ void Cog::setSoaked(int state) {
 
 void Cog::update() {
     if (lured) {
-        lured += lured > 0 ? -1 : 1;
+        // lured += lured > 0 ? -1 : 1;
+        --lured;
+        if (!lured) {
+            currLureMax = 0;
+            presLured = false;
+        }
     }
     if (soaked > 0) {
         --soaked;
+        if (!soaked) {
+            if (level == 1) {
+                defense = 2;
+            } else if (level >= 14) {
+                defense = executive ? 70 : 65;
+            } else {
+                defense = (level + executive - 1) * 5;
+            }
+        }
     }
+}
+
+int Cog::getLureAccCap() const {
+    if (!lured)
+        return 0;
+    if (currLureMax - lured == 0 || (currLureMax - lured == 1 && presLured))
+        return 100;
+    return 100 - 5 * (currLureMax - lured);
 }
 
 size_t Cog::getPrintSize() const {
@@ -71,7 +110,7 @@ size_t Cog::getPrintSize() const {
         if (trapped) {
             buffer += "(" + std::to_string(trapped) + ")";
         }
-        if (lured > 0) {
+        if (presLured) {
             buffer += "*";
         }
     }
@@ -95,7 +134,7 @@ std::ostream& operator<<(std::ostream& out, const Cog& cog) {
     if (cog.trapped && cog.hp != 0) {
         out << "(" << TRAPPED << cog.trapped << rang::style::reset << ")";
     }
-    if (cog.lured > 0 && cog.hp != 0) {
+    if (cog.presLured && cog.hp != 0) {
         out << PRESLURED;
     }
     return out;

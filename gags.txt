@@ -46,7 +46,7 @@ taser 24 30
 tv 40 30
 tesla 66 30
 lightning 80 30
-cupcake 7 30
+cupcake 7 75
 fruitslice 11 75
 creamslice 18 75
 bdayslice 30 75
@@ -68,9 +68,9 @@ flippy 150
 will 140
 penny 200
 clara 240
-stinkyned 0 4
-nancy 0 5
-oldman 0 6
+stinkyned 0 3
+nancy 0 4
+oldman 0 5
 barbara 40
 sonata 60
 moe 85

@@ -51,6 +51,7 @@ public:
 private:
     Cogset cogset;
     std::queue<Cog> loader;
+    std::vector<Gag> successfulGags;
     GagCollection gc;
     std::map<std::string, int> posDefinition = {
         {"left", 0},
@@ -62,6 +63,8 @@ private:
 
     int validQuickhand(std::string quickhand) const;
     bool isPluralGag(std::string gag) const;
+    std::vector<Gag> accuracyFilter(const std::vector<Gag>& gags);
+    int getBonus(const Gag& g) const;
 
     bool autoPres = true;
     bool autoHit = true;

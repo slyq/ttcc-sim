@@ -58,6 +58,8 @@ Do not specify a target for group lure, sound, or SOS, or when the cog set only 
 
 For cog sets larger than 1, the specified target can be a 0-indexed position (prepended with `!`), a defined position, or a cog's level name. In the case where a level name is supplied, the target will be the leftmost (first) occurrence.
 
+Accuracies are calculated with the assumption that all gag tracks are maxed, so the "track experience" factor is always 70.
+
 ### Defined positions:
 | name        | meaning       |
 |-------------|---------------|

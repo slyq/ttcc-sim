@@ -54,6 +54,7 @@ void Battle::generate() {
 }
 
 void Battle::turn(vector<Gag> strat) {
+    srand(time(NULL));
     vector<vector<Gag>> gags;
     size_t numTracks = 8;
     for (size_t i = 0; i < numTracks + 1; ++i) {
@@ -64,9 +65,6 @@ void Battle::turn(vector<Gag> strat) {
         if (autoPres) {
             strat[i].prestiged = true;
         }
-        if (autoHit) {
-            strat[i].accuracy = 100;
-        }
         if (strat[i].kind != GagKind::PASS) {
             gags[(int)strat[i].kind].push_back(strat[i]);
         }
@@ -75,33 +73,42 @@ void Battle::turn(vector<Gag> strat) {
     if (!gags[numTracks].empty()) {
         cogset.fireTurn(gags[numTracks]);
     }
+    successfulGags = gags[numTracks];
     for (size_t i = 0; (i < numTracks && !cogset.allDead()); ++i) {
         if (!gags[i].empty()) {
+            vector<Gag> hitGags;
+            if (autoHit) {
+                hitGags = gags[i];
+            } else {
+                hitGags = accuracyFilter(gags[i]);
+            }
             switch (i) {
             case 1:
-                cogset.trapTurn(gags[i]);
+                cogset.trapTurn(hitGags);
                 break;
             case 2:
-                cogset.lureTurn(gags[i]);
+                cogset.lureTurn(hitGags);
                 break;
             case 3:
-                cogset.soundTurn(gags[i]);
+                cogset.soundTurn(hitGags);
                 break;
             case 4:
-                cogset.squirtTurn(gags[i]);
+                cogset.squirtTurn(hitGags);
                 break;
             case 5:
-                cogset.zapTurn(gags[i]);
+                cogset.zapTurn(hitGags);
                 break;
             case 6:
-                cogset.throwTurn(gags[i]);
+                cogset.throwTurn(hitGags);
                 break;
             case 7:
-                cogset.dropTurn(gags[i]);
+                cogset.dropTurn(hitGags);
                 break;
             default:
                 break;
             }
+            successfulGags.reserve(successfulGags.size() + hitGags.size());
+            successfulGags.insert(successfulGags.end(), hitGags.begin(), hitGags.end());
         }
     }
     cogset.load(loader);
@@ -131,6 +138,123 @@ bool Battle::isPluralGag(string gag) const {
         return gc.contains(gag);
     }
     return false;
+}
+
+vector<Gag> Battle::accuracyFilter(const vector<Gag>& gags) {
+    // record of cogs and whether they were hit
+    vector<int> calculatedHits(cogset.getSize(), 0);
+    for (const Gag& g : gags) {
+        bool calculated = true;
+        if (g.accuracy != 100) {
+            // check if any in group was not calculated before
+            if (g.target == -1) {
+                calculated = true;
+                for (int i : calculatedHits) {
+                    if (i == 0) {
+                        calculated = false;
+                        break;
+                    }
+                }
+            } else {
+                calculated = calculatedHits[g.target];
+            }
+        }
+        if (!calculated) {
+            if (g.kind == GagKind::ZAP && cogset.getCog(g.target).getSoaked()) {
+                // zap + soak = hit
+                calculatedHits[g.target] = 1;
+            } else {
+                // run through accuracy check
+                int propAcc = g.accuracy;
+                if (g.kind == GagKind::DROP && g.prestiged) {
+                    propAcc += 10;
+                }
+                // assume all gags maxed, so max track exp
+                int trackExp = 70;
+                int tgtDef = 0;
+                int lureMin = 0;
+                // defense and lure do not apply to toonup
+                if (g.kind != GagKind::TOONUP) {
+                    if (g.target == -1) {
+                        // obtain highest defense and lure accuracy minimum
+                        for (size_t cogIndex = 0; cogIndex < cogset.getSize(); ++cogIndex) {
+                            if (cogset.getCog(cogIndex).getDefense() > tgtDef) {
+                                tgtDef = cogset.getCog(cogIndex).getDefense();
+                            }
+                            if (cogset.getCog(cogIndex).getLureAccCap() > lureMin) {
+                                lureMin = cogset.getCog(cogIndex).getLureAccCap();
+                            }
+                        }
+                    } else {
+                        // obtain target defense and lure accuracy minimum
+                        tgtDef = cogset.getCog(g.target).getDefense();
+                        lureMin = cogset.getCog(g.target).getLureAccCap();
+                    }
+                }
+                int bonus = getBonus(g);
+                int acc = propAcc + trackExp - tgtDef + bonus;
+                acc = acc > 95 ? 95 : acc;
+                acc = lureMin > acc ? lureMin : acc;
+
+                int roll = rand() % 100;
+                bool hit = roll < acc;
+                if (g.target == -1) {
+                    // group attacks override other single attack calculations of the same gag
+                    for (size_t cogIndex = 0; cogIndex < calculatedHits.size(); ++cogIndex) {
+                        calculatedHits[cogIndex] = hit ? 1 : -1;
+                    }
+                } else {
+                    calculatedHits[g.target] = hit ? 1 : -1;
+                }
+            }
+        }
+    }
+    // filter
+    vector<Gag> hitGags;
+    for (const Gag& g : gags) {
+        bool hit = true;
+        if (g.accuracy != 100) {
+            // grab hit status
+            if (g.target == -1) {
+                for (int i : calculatedHits) {
+                    if (i == -1) {
+                        hit = false;
+                        break;
+                    }
+                }
+            } else {
+                hit = calculatedHits[g.target] == 1;
+            }
+        }
+        if (hit) {
+            hitGags.push_back(g);
+        } else {
+            // unlure if applicable
+            if (g.kind != GagKind::TOONUP && g.kind != GagKind::LURE && g.kind != GagKind::DROP) {
+                if (g.target == -1) {
+                    for (size_t cogIndex = 0; cogIndex < cogset.getSize(); ++cogIndex) {
+                        if (cogset.getCog(cogIndex).getLured()) {
+                            cogset.getCog(cogIndex).unlure();
+                        }
+                    }
+                } else if (cogset.getCog(g.target).getLured()) {
+                    cogset.getCog(g.target).unlure();
+                }
+            }
+            cout << g.name << " missed!" << endl;
+        }
+    }
+    return hitGags;
+}
+
+int Battle::getBonus(const Gag& g) const {
+    int bonus = 0;
+    for (const Gag& hitGag : successfulGags) {
+        if (g.kind != hitGag.kind && (hitGag.target == -1 || g.target == -1 || hitGag.target == g.target)) {
+            bonus += 20;
+        }
+    }
+    return bonus;
 }
 
 /*
@@ -257,13 +381,13 @@ vector<Gag> Battle::parseOneliner(string strat) {
                 }
                 gagchoice.prestiged = gagpres || blockpres;
                 if (quickhand > 0 && director.size()) {
-                    if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
+                    if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
                         throw invalid_argument("Cannot use multi-target gags/SOS in a quickhand strategy");
                     }
                     // retrieve target from the "queued" targets parsed from the quickhand
                     gagchoice.target = director.front();
                     director.pop_front();
-                } else if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
+                } else if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
                     gagchoice.target = -1;
                 } else if (cogset.getSize() == 1) {
                     gagchoice.target = 0;
@@ -372,8 +496,7 @@ Gag Battle::parseGag(string command) {
     }
     if (gag_name != "PASS") {
         gagchoice = gc.get(gag_name);
-        if ((gagchoice.kind == GagKind::LURE && gagchoice.name.find("dollar") == string::npos)
-            || gagchoice.kind == GagKind::SOUND || gc.isSOS(gag_name)) {
+        if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND || gc.isSOS(gag_name)) {
             gagchoice.target = -1;
         } else if (cogset.getSize() == 1) {
             // single target, automatic
@@ -446,6 +569,7 @@ void Battle::battle() {
             for (size_t i = 0; i < gagHistory.size(); ++i) {
                 cout << "TURN " << i + 1 << endl;
                 Battle b = battleHistory[i];
+                b.autoHit = true;
                 cout << ">>\t" << b.cogset << endl;
                 b.turn(gagHistory[i]);
                 cout << string(40, '-') << endl;
@@ -513,9 +637,9 @@ void Battle::battle() {
         }
 
         if (doTurn) {
-            gagHistory.push_back(gags);
             battleHistory.push_back(*this);
             turn(gags);
+            gagHistory.push_back(successfulGags);
             // reset
             gags.clear();
             doTurn = false;

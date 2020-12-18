@@ -42,6 +42,13 @@ void Cogset::update() {
     }
 }
 
+const Cog& Cogset::getCog(int pos) const {
+    if (pos >= (int)cogs.size()) {
+        throw invalid_argument("Out of bounds");
+    }
+    return cogs.at(pos);
+}
+
 Cog& Cogset::getCog(int pos) {
     if (pos >= (int)cogs.size()) {
         throw invalid_argument("Out of bounds");
@@ -75,9 +82,6 @@ void Cogset::attack(const vector<int>& affected, char type) {
             for (size_t i = 0; i < cogs.size(); ++i) {
                 if (affected[i]) {
                     cogs[i].hit(affected[i]);
-                    if (cogs[i].getLured()) {
-                        cogs[i].unlure();
-                    }
                     if (printCogset) {
                         switch (type) {
                         case 0:
@@ -116,13 +120,23 @@ void Cogset::apply(const vector<int>& affected, GagKind gk) {
                 if (gk == GagKind::TRAP) {
                     cogs[i].setTrap(affected[i]);
                 } else if (gk == GagKind::LURE) {
-                    cogs[i].setLured(affected[i]);
+                    cogs[i].setLured(abs(affected[i]), affected[i] > 0);
                 } else if (gk == GagKind::SQUIRT) {
-                    cogs[i].setSoaked(affected[i]);
+                    cogs[i].setSoaked(abs(affected[i]), affected[i] > 0);
                 }
             }
         }
     }
+}
+
+int Cogset::numLured() const {
+    int lurecount = 0;
+    for (size_t i = 0; i < cogs.size(); ++i) {
+        if (cogs[i].getLured()) {
+            ++lurecount;
+        }
+    }
+    return lurecount;
 }
 
 void Cogset::gagCheck(const Gag& gagchoice) const {
@@ -130,13 +144,10 @@ void Cogset::gagCheck(const Gag& gagchoice) const {
         throw invalid_argument("Out of bounds");
     }
     size_t trapcount = 0;
-    size_t lurecount = 0;
+    size_t lurecount = numLured();
     for (size_t i = 0; i < cogs.size(); ++i) {
         if (cogs[i].getTrap()) {
             ++trapcount;
-        }
-        if (cogs[i].getLured()) {
-            ++lurecount;
         }
     }
     if (gagchoice.kind == GagKind::TRAP) {
@@ -312,6 +323,7 @@ void Cogset::squirtTurn(const vector<Gag>& squirts) {
     vector<int> damages(cogs.size(), 0);
     vector<bool> multi(cogs.size(), false);
     vector<int> soakRounds(cogs.size(), 0);
+    vector<bool> presSoaked(cogs.size(), false);
     int targ = -1;
     bool sos = false;
     // soak rounds do not stack but can be reset to a higher number
@@ -348,15 +360,23 @@ void Cogset::squirtTurn(const vector<Gag>& squirts) {
                 if (g.target - 1 >= 0 && cogs[g.target - 1].getHP() != 0
                     && effectiveRounds > soakRounds[g.target - 1]) {
                     soakRounds[g.target - 1] = effectiveRounds;
+                    presSoaked[g.target - 1] = true;
                 }
                 if (g.target + 1 < (int)cogs.size() && cogs[g.target + 1].getHP() != 0
                     && effectiveRounds > soakRounds[g.target + 1]) {
                     soakRounds[g.target + 1] = effectiveRounds;
+                    presSoaked[g.target + 1] = true;
                 }
             }
             if (effectiveRounds > soakRounds[g.target]) {
                 soakRounds[g.target] = effectiveRounds;
+                presSoaked[g.target] = true;
             }
+        }
+    }
+    for (size_t i = 0; i < soakRounds.size(); ++i) {
+        if (!presSoaked[i]) {
+            soakRounds[i] = -1 * soakRounds[i];
         }
     }
     // damage and print effect
@@ -365,10 +385,10 @@ void Cogset::squirtTurn(const vector<Gag>& squirts) {
     vector<int> combo(cogs.size(), 0);
     for (size_t i = 0; i < cogs.size(); ++i) {
         if (damages[i]) {
-            if (cogs[i].getLured() > 0) {
+            if (cogs[i].getLured() && cogs[i].getPresLured()) {
                 // pres lure knockback
                 knockback[i] = ceil(damages[i] * 0.65);
-            } else if (cogs[i].getLured() < 0) {
+            } else if (cogs[i].getLured()) {
                 // lure knockback
                 knockback[i] = ceil(damages[i] * 0.5);
             }
@@ -415,7 +435,7 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
             vector<bool> examined(cogs.size(), false);
             size_t hitCount = 0, examineCount = 0;
             int targ = g.target, lastTarget = g.target;
-            char dir = -1;        // -1 left, 1 right
+            char dir = -1;
             float dropoff = g.prestiged ? 0.5 : 0.75;
             while (hitCount < 3 && examineCount < cogs.size() && abs(targ - lastTarget) <= 2) {
                 // keep checking until jump count limit reached, all cogs examined, or zap fails to jump
@@ -494,10 +514,10 @@ void Cogset::throwTurn(const vector<Gag>& throws) {
     vector<int> combo(cogs.size(), 0);
     for (size_t i = 0; i < cogs.size(); ++i) {
         if (damages[i]) {
-            if (cogs[i].getLured() > 0) {
+            if (cogs[i].getLured() && cogs[i].getPresLured()) {
                 // pres lure knockback
                 knockback[i] = ceil(damages[i] * 0.65);
-            } else if (cogs[i].getLured() < 0) {
+            } else if (cogs[i].getLured()) {
                 // lure knockback
                 knockback[i] = ceil(damages[i] * 0.5);
             }
