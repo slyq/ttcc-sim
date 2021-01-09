@@ -1,5 +1,5 @@
 # ttcc-sim
-A simulator of TTCC's battle mechanics (WIP)
+A simulator of TTCC's battle mechanics
 
 ## Command format for one liners
 `[pres] [quickhand-strat and/or cross] [number] [pres] <gag>[s] (target) ...[[number] [pres] <gag>[s] (target)]`
