@@ -17,6 +17,7 @@ protected:
     virtual ~GagCollectionTest() {}
     GagCollection gc = GagCollection::read(GAGDICT_PATH);
     testing::AssertionResult verifyGag(const Gag& g, GagKind gk, string name, unsigned short damage, int accuracy);
+    testing::AssertionResult verifySos(const Sos& g, SosKind gk, string name, int effect, int rounds);
 };
 
 testing::AssertionResult GagCollectionTest::verifyGag(const Gag& g, GagKind gk, string name, unsigned short damage, int accuracy) {
@@ -35,50 +36,66 @@ testing::AssertionResult GagCollectionTest::verifyGag(const Gag& g, GagKind gk, 
     return testing::AssertionSuccess();
 }
 
-TEST_F(GagCollectionTest, IsGag) {
-    EXPECT_TRUE(gc.contains("feather"));
-    EXPECT_TRUE(gc.contains("highdive"));
-    EXPECT_TRUE(gc.contains("spring"));
-    EXPECT_TRUE(gc.contains("1dollar"));
-    EXPECT_TRUE(gc.contains("trunk"));
-    EXPECT_TRUE(gc.contains("seltzer"));
-    EXPECT_TRUE(gc.contains("tv"));
-    EXPECT_TRUE(gc.contains("fruitslice"));
-    EXPECT_TRUE(gc.contains("piano"));
+testing::AssertionResult GagCollectionTest::verifySos(const Sos& g, SosKind gk, string name, int effect, int rounds) {
+    if (g.kind != gk) {
+        return testing::AssertionFailure() << "Sos kind is incorrect!";
+    }
+    if (g.name != name) {
+        return testing::AssertionFailure() << "Sos name is incorrect!";
+    }
+    if (g.passiveEffect != effect) {
+        return testing::AssertionFailure() << "Sos effect is incorrect!";
+    }
+    if (g.duration != rounds) {
+        return testing::AssertionFailure() << "Sos rounds is incorrect!";
+    }
+    return testing::AssertionSuccess();
+}
 
-    EXPECT_TRUE(gc.contains("chuckle"));
-    EXPECT_TRUE(gc.contains("sharky"));
-    EXPECT_TRUE(gc.contains("bessie"));
-    EXPECT_TRUE(gc.contains("rain"));
+TEST_F(GagCollectionTest, IsGag) {
+    EXPECT_TRUE(gc.isGag("feather"));
+    EXPECT_TRUE(gc.isGag("highdive"));
+    EXPECT_TRUE(gc.isGag("spring"));
+    EXPECT_TRUE(gc.isGag("1dollar"));
+    EXPECT_TRUE(gc.isGag("trunk"));
+    EXPECT_TRUE(gc.isGag("seltzer"));
+    EXPECT_TRUE(gc.isGag("tv"));
+    EXPECT_TRUE(gc.isGag("fruitslice"));
+    EXPECT_TRUE(gc.isGag("piano"));
 }
 
 TEST_F(GagCollectionTest, IsNotGag) {
-    EXPECT_FALSE(gc.contains("t"));
-    EXPECT_FALSE(gc.contains("tvs"));
-    EXPECT_FALSE(gc.contains("8"));
-    EXPECT_FALSE(gc.contains(""));
+    EXPECT_FALSE(gc.isGag("t"));
+    EXPECT_FALSE(gc.isGag("tvs"));
+    EXPECT_FALSE(gc.isGag("8"));
+    EXPECT_FALSE(gc.isGag(""));
+
+    EXPECT_FALSE(gc.isGag("chuckle"));
+    EXPECT_FALSE(gc.isGag("sharky"));
+    EXPECT_FALSE(gc.isGag("bessie"));
+    EXPECT_FALSE(gc.isGag("rain"));
 }
 
 TEST_F(GagCollectionTest, IsSOS) {
-    EXPECT_TRUE(gc.isSOS("chuckle"));
-    EXPECT_TRUE(gc.isSOS("sharky"));
-    EXPECT_TRUE(gc.isSOS("bessie"));
-    EXPECT_TRUE(gc.isSOS("rain"));
+    EXPECT_TRUE(gc.isSos("chuckle"));
+    EXPECT_TRUE(gc.isSos("sharky"));
+    EXPECT_TRUE(gc.isSos("bessie"));
+    EXPECT_TRUE(gc.isSos("rain"));
 }
 
 TEST_F(GagCollectionTest, IsNotSOS) {
-    EXPECT_FALSE(gc.isSOS("feather"));
-    EXPECT_FALSE(gc.isSOS("tv"));
-    EXPECT_FALSE(gc.isSOS("piano"));
-    EXPECT_FALSE(gc.isSOS("asdf"));
+    EXPECT_FALSE(gc.isSos("feather"));
+    EXPECT_FALSE(gc.isSos("tv"));
+    EXPECT_FALSE(gc.isSos("piano"));
+    EXPECT_FALSE(gc.isSos("asdf"));
 }
 
 TEST_F(GagCollectionTest, GagInfo) {
-    EXPECT_TRUE(verifyGag(gc.get("feather"), GagKind::TOONUP, "feather", 8, 70));
-    EXPECT_TRUE(verifyGag(gc.get("bigmagnet"), GagKind::LURE, "bigmagnet", 0, 60));
-    EXPECT_TRUE(verifyGag(gc.get("hose"), GagKind::SQUIRT, "hose", 56, 95));
-    EXPECT_TRUE(verifyGag(gc.get("clara"), GagKind::TRAP, "clara", 240, 100));
-    EXPECT_TRUE(verifyGag(gc.get("rain"), GagKind::DROP, "rain", 20, 100));
+    EXPECT_TRUE(verifyGag(gc.getGag("feather"), GagKind::TOONUP, "feather", 8, 95));
+    EXPECT_TRUE(verifyGag(gc.getGag("bigmagnet"), GagKind::LURE, "bigmagnet", 0, 70));
+    EXPECT_TRUE(verifyGag(gc.getGag("hose"), GagKind::SQUIRT, "hose", 56, 95));
+    EXPECT_TRUE(verifySos(gc.getSos("clara"), SosKind::TRAP, "clara", 20, 2));
+    EXPECT_TRUE(verifySos(gc.getSos("rain"), SosKind::ALL, "rain", 5, 1));
 }
 
 class CogTest : public testing::Test {
@@ -198,7 +215,8 @@ protected:
     Battle battle;
     bool contains(const vector<Gag>& gags, const Gag& gag, size_t count) const;
     int indexOf(const vector<Gag>& gags, const Gag& gag) const;
-    vector<Gag> buildStrat(const vector<string>& s);
+    Strategy buildStrat(const vector<string>& s);
+    GagCollection gc = GagCollection::read(GAGDICT_PATH);
 };
 
 bool ParseTest::contains(const vector<Gag>& gags, const Gag& gag, size_t count) const {
@@ -225,28 +243,33 @@ int ParseTest::indexOf(const vector<Gag>& gags, const Gag& gag) const {
     return -1;
 }
 
-vector<Gag> ParseTest::buildStrat(const vector<string>& s) {
+Strategy ParseTest::buildStrat(const vector<string>& s) {
     vector<Gag> gags;
+    vector<Sos> soses;
     for (const string& gag : s) {
-        gags.push_back(battle.parseGag(gag));
+        if (gc.isSos(gag)) {
+            soses.push_back(gc.getSos(gag));
+        } else {
+            gags.push_back(battle.parseGag(gag));
+        }
     }
     sort(gags.begin(), gags.end(), GagComparator());
     reverse(gags.begin(), gags.end());
-    return gags;
+    return Strategy(gags, soses);
 }
 
 TEST_F(ParseTest, OneLineNoPres) {
     vector<Cog> set{Cog("18.exe"), Cog("17"), Cog("18"), Cog("18.exe")};
     battle.setCogset(set);
-    vector<Gag> gags = battle.parseOneliner("trunk");
+    vector<Gag> gags = battle.parseOneliner("trunk").gags;
     EXPECT_EQ(gags.size(), 1);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SOUND, 32, -1, false), 1));
 
-    gags = battle.parseOneliner("marbles left hypno");
+    gags = battle.parseOneliner("marbles left hypno").gags;
     EXPECT_EQ(gags.size(), 2);
     EXPECT_TRUE(contains(gags, Gag(GagKind::TRAP, 65, 0, false), 1));
     Gag hypno = Gag(GagKind::LURE, 0, -1, false);
-    hypno.accuracy = 70;
+    hypno.accuracy = 75;
     EXPECT_TRUE(contains(gags, hypno, 1));
 
     string commandtest[4]
@@ -255,7 +278,7 @@ TEST_F(ParseTest, OneLineNoPres) {
                "wballoon 18.exe taser 17 cream 18 weight right",
                "xxxx wballoon taser cream weight"};
     for (string command : commandtest) {
-        gags = battle.parseOneliner(command);
+        gags = battle.parseOneliner(command).gags;
         EXPECT_EQ(gags.size(), 4);
         EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 21, 0, false), 1));
         EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 24, 1, false), 1));
@@ -263,26 +286,28 @@ TEST_F(ParseTest, OneLineNoPres) {
         EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 80, 3, false), 1));
     }
 
-    gags = battle.parseOneliner("-xx- tvs -X-- seltzer seltzer");
+    gags = battle.parseOneliner("-xx- tvs -X-- seltzer seltzer").gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, false), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
     EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 1, false)));
 
-    gags = battle.parseOneliner("-xx- cross tv tv -X-- seltzer seltzer");
+    gags = battle.parseOneliner("-xx- cross tv tv -X-- seltzer seltzer").gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, false), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
     EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 1, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)));
 
-    gags = battle.parseOneliner("sanjay rain");
-    EXPECT_EQ(gags.size(), 2);
-    EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 80, -1, false), 1));
-    EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 20, -1, false), 1));
+    vector<Sos> soses;
+    Strategy s = battle.parseOneliner("sanjay rain");
+    gags = s.gags;
+    soses = s.soses;
+    EXPECT_EQ(gags.size(), 0);
+    EXPECT_EQ(soses.size(), 2);
 
-    gags = battle.parseOneliner("fire left");
+    gags = battle.parseOneliner("fire left").gags;
     EXPECT_EQ(gags.size(), 1);
     EXPECT_TRUE(contains(gags, Gag(GagKind::FIRE, 0, 0, false), 1));
 }
@@ -290,15 +315,15 @@ TEST_F(ParseTest, OneLineNoPres) {
 TEST_F(ParseTest, OneLinePres) {
     vector<Cog> set{Cog("18.exe"), Cog("17"), Cog("18"), Cog("18.exe")};
     battle.setCogset(set);
-    vector<Gag> gags = battle.parseOneliner("pres trunk");
+    vector<Gag> gags = battle.parseOneliner("pres trunk").gags;
     EXPECT_EQ(gags.size(), 1);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SOUND, 32, -1, true), 1));
 
-    gags = battle.parseOneliner("pres marbles left hypno");
+    gags = battle.parseOneliner("pres marbles left hypno").gags;
     EXPECT_EQ(gags.size(), 2);
     EXPECT_TRUE(contains(gags, Gag(GagKind::TRAP, 65, 0, true), 1));
     Gag hypno = Gag(GagKind::LURE, 0, -1, false);
-    hypno.accuracy = 70;
+    hypno.accuracy = 75;
     EXPECT_TRUE(contains(gags, hypno, 1));
 
     string commandtest[4]
@@ -307,7 +332,7 @@ TEST_F(ParseTest, OneLinePres) {
                "pres wballoon 18.exe taser 17 pres cream 18 weight right",
                "xxxx pres wballoon taser pres cream weight"};
     for (string command : commandtest) {
-        gags = battle.parseOneliner(command);
+        gags = battle.parseOneliner(command).gags;
         EXPECT_EQ(gags.size(), 4);
         EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 21, 0, true), 1));
         EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 24, 1, false), 1));
@@ -315,14 +340,14 @@ TEST_F(ParseTest, OneLinePres) {
         EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 80, 3, false), 1));
     }
 
-    gags = battle.parseOneliner("-xx- pres tv tv pres -X-- seltzer seltzer");
+    gags = battle.parseOneliner("-xx- pres tv tv pres -X-- seltzer seltzer").gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, true), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, true), 1));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 2, false), 1));
     EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 1, true)));
 
-    gags = battle.parseOneliner("-xx- cross pres tv tv pres -X-- seltzers");
+    gags = battle.parseOneliner("-xx- cross pres tv tv pres -X-- seltzers").gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, true), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
@@ -334,16 +359,16 @@ TEST_F(ParseTest, MultLineNoPres) {
     vector<Cog> set{Cog("18.exe"), Cog("17"), Cog("18"), Cog("18.exe")};
     battle.setCogset(set);
     vector<string> commands{"trunk", "trunk", "trunk", "trunk"};
-    vector<Gag> gags = buildStrat(commands);
+    vector<Gag> gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SOUND, 32, -1, false), 4));
 
     commands = {"marbles left", "hypno", "PASS", "PASS"};
-    gags = buildStrat(commands);
+    gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::TRAP, 65, 0, false), 1));
     Gag hypno = Gag(GagKind::LURE, 0, -1, false);
-    hypno.accuracy = 70;
+    hypno.accuracy = 75;
     EXPECT_TRUE(contains(gags, hypno, 1));
 
     vector<vector<string>> commandtest
@@ -351,7 +376,7 @@ TEST_F(ParseTest, MultLineNoPres) {
                {"wballoon !0", "taser !1", "cream !2", "weight !3"},
                {"wballoon 18.exe", "taser 17", "cream 18", "weight right"}};
     for (auto command : commandtest) {
-        gags = buildStrat(command);
+        gags = buildStrat(command).gags;
         EXPECT_EQ(gags.size(), 4);
         EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 21, 0, false), 1));
         EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 24, 1, false), 1));
@@ -360,7 +385,7 @@ TEST_F(ParseTest, MultLineNoPres) {
     }
 
     commands = {"tv mid-left", "tv mid-right", "seltzer mid-left", "seltzer mid-left"};
-    gags = buildStrat(commands);
+    gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, false), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
@@ -368,7 +393,7 @@ TEST_F(ParseTest, MultLineNoPres) {
     EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 1, false)));
 
     commands = {"tv mid-right", "tv mid-left", "seltzer mid-left", "seltzer mid-left"};
-    gags = buildStrat(commands);
+    gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, false), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, false), 1));
@@ -376,13 +401,13 @@ TEST_F(ParseTest, MultLineNoPres) {
     EXPECT_TRUE(indexOf(gags, Gag(GagKind::ZAP, 40, 1, false)) < indexOf(gags, Gag(GagKind::ZAP, 40, 2, false)));
 
     commands = {"sanjay", "rain", "PASS", "PASS"};
-    gags = buildStrat(commands);
-    EXPECT_EQ(gags.size(), 4);
-    EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 80, -1, false), 1));
-    EXPECT_TRUE(contains(gags, Gag(GagKind::DROP, 20, -1, false), 1));
+    gags = buildStrat(commands).gags;
+    vector<Sos> soses = buildStrat(commands).soses;
+    EXPECT_EQ(gags.size(), 2);
+    EXPECT_EQ(soses.size(), 2);
 
     commands = {"fire left", "PASS", "PASS", "PASS"};
-    gags = buildStrat(commands);
+    gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::FIRE, 0, 0, false), 1));
 }
@@ -391,17 +416,17 @@ TEST_F(ParseTest, MultLinePres) {
     vector<Cog> set{Cog("18.exe"), Cog("17"), Cog("18"), Cog("18.exe")};
     battle.setCogset(set);
     vector<string> commands{"pres trunk", "trunk", "trunk", "pres trunk"};
-    vector<Gag> gags = buildStrat(commands);
+    vector<Gag> gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SOUND, 32, -1, true), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::SOUND, 32, -1, false), 2));
 
     commands = {"pres marbles left", "pres hypno", "PASS", "PASS"};
-    gags = buildStrat(commands);
+    gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::TRAP, 65, 0, true), 1));
     Gag hypno = Gag(GagKind::LURE, 0, -1, true);
-    hypno.accuracy = 70;
+    hypno.accuracy = 75;
     EXPECT_TRUE(contains(gags, hypno, 1));
 
     vector<vector<string>> commandtest
@@ -409,7 +434,7 @@ TEST_F(ParseTest, MultLinePres) {
                {"pres wballoon !0", "taser !1", "pres cream !2", "weight !3"},
                {"pres wballoon 18.exe", "taser 17", "pres cream 18", "weight right"}};
     for (auto command : commandtest) {
-        gags = buildStrat(command);
+        gags = buildStrat(command).gags;
         EXPECT_EQ(gags.size(), 4);
         EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 21, 0, true), 1));
         EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 24, 1, false), 1));
@@ -418,7 +443,7 @@ TEST_F(ParseTest, MultLinePres) {
     }
 
     commands = {"tv mid-right", "pres tv mid-left", "pres seltzer mid-left", "pres seltzer mid-left"};
-    gags = buildStrat(commands);
+    gags = buildStrat(commands).gags;
     EXPECT_EQ(gags.size(), 4);
     EXPECT_TRUE(contains(gags, Gag(GagKind::SQUIRT, 30, 1, true), 2));
     EXPECT_TRUE(contains(gags, Gag(GagKind::ZAP, 40, 1, true), 1));
@@ -443,12 +468,12 @@ TEST_F(BattleTest, Trap) {
     battle.setPresState(false);
     int preHP[4] = {110, 110, 132, 132};
     int expectedTrap[4] = {20, 47, 20, 50};
-    battle.turn(battle.parseOneliner("x-x- banana banana pres -x-x banana banana"));
+    battle.turn(battle.parseOneliner("x-x- banana banana pres -x-x banana banana").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getTrap(), expectedTrap[i]);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
-    battle.turn(battle.parseOneliner("bigmagnet"));
+    battle.turn(battle.parseOneliner("bigmagnet").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getTrap());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i] - expectedTrap[i]);
@@ -456,21 +481,17 @@ TEST_F(BattleTest, Trap) {
 }
 
 TEST_F(BattleTest, TrapSOS) {
-    battle.setCogset(vector<Cog>(4, 9));
+    vector<Cog> set{Cog("20"), Cog("19")};
+    battle.setCogset(set);
     battle.setPresState(false);
-    battle.turn(battle.parseOneliner("penny"));
-    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getTrap(), 200);
-    }
-
-    battle.setCogset(vector<Cog>(4, 9));
-    battle.turn(battle.parseOneliner("10dollar left banana mid-left"));
-    battle.turn(battle.parseOneliner("penny"));
-    EXPECT_FALSE(battle.getCogset().getCog(0).getTrap());
-    for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getTrap(), i == 1 ? 20 : 200);
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 110);
-    }
+    Strategy s = battle.parseOneliner("clara pres wreckingball left");
+    battle.affect(s.soses);
+    battle.turn(s.gags);
+    battle.turn(battle.parseOneliner("wreckingball right hypno").gags);
+    EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 462 - 300);
+    EXPECT_EQ(battle.getCogset().getCog(1).getHP(), 420 - 240);
+    battle.turn(battle.parseOneliner("banana left hypno").gags);
+    EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 462 - 300 - 20);
 }
 
 TEST_F(BattleTest, TrapDrop) {
@@ -478,12 +499,12 @@ TEST_F(BattleTest, TrapDrop) {
     battle.setCogset(set);
     battle.setPresState(true);
 
-    battle.turn(battle.parseOneliner("xx-- wreckingball wreckingball"));
-    battle.turn(battle.parseOneliner("xx-- 50dollar 10dollar xX-- safe safe weight"));
+    battle.turn(battle.parseOneliner("xx-- wreckingball wreckingball").gags);
+    battle.turn(battle.parseOneliner("xx-- 50dollar 10dollar xX-- safe safe weight").gags);
     EXPECT_EQ(battle.getCogset().getSize(), 2);
 
     battle.setPresState(false);
-    battle.turn(battle.parseOneliner("xx wreckingball tnt hypno xX boulder weight piano"));
+    battle.turn(battle.parseOneliner("xx wreckingball tnt hypno xX boulder weight piano").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 }
 
@@ -491,19 +512,13 @@ TEST_F(BattleTest, TrapCanceling) {
     battle.setCogset(vector<Cog>(4, 9));
     battle.setPresState(false);
 
-    vector<string> badcommands = {
-        "banana left banana left",
-        "clara banana left",
-        "tnt left tnt right will",
-    };
     // traps should cancel out
-    for (string s : badcommands) {
-        battle.turn(battle.parseOneliner(s));
-        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-            EXPECT_FALSE(battle.getCogset().getCog(i).getTrap());
-        }
+    battle.turn(battle.parseOneliner("banana left banana left").gags);
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_FALSE(battle.getCogset().getCog(i).getTrap());
     }
-    battle.turn(battle.parseOneliner("banana left banana right banana right"));
+
+    battle.turn(battle.parseOneliner("banana left banana right banana right").gags);
     EXPECT_EQ(battle.getCogset().getCog(0).getTrap(), 20);
     for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getTrap());
@@ -517,47 +532,73 @@ TEST_F(BattleTest, Lure) {
     battle.setPresState(false);
 
     // xx--
-    battle.turn(battle.parseOneliner("10dollar left 50dollar mid-left"));
+    battle.turn(battle.parseOneliner("10dollar left 50dollar mid-left").gags);
     EXPECT_EQ(battle.getCogset().getCog(0).getLured(), 4);
     EXPECT_EQ(battle.getCogset().getCog(0).getPresLured(), false);
+    EXPECT_EQ(battle.getCogset().getCog(0).getLuredKnockback(), 50);
     EXPECT_EQ(battle.getCogset().getCog(1).getLured(), 5);
     EXPECT_EQ(battle.getCogset().getCog(1).getPresLured(), false);
+    EXPECT_EQ(battle.getCogset().getCog(1).getLuredKnockback(), 50);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         if (i >= 2) {
             EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
+            EXPECT_EQ(battle.getCogset().getCog(i).getLuredKnockback(), 0);
         }
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 
     // xxoo (does not override previous lure)
-    battle.turn(battle.parseOneliner("pres bigmagnet"));
+    battle.turn(battle.parseOneliner("pres bigmagnet").gags);
     EXPECT_EQ(battle.getCogset().getCog(0).getLured(), 3);
     EXPECT_EQ(battle.getCogset().getCog(0).getPresLured(), false);
+    EXPECT_EQ(battle.getCogset().getCog(0).getLuredKnockback(), 50);
     EXPECT_EQ(battle.getCogset().getCog(1).getLured(), 4);
     EXPECT_EQ(battle.getCogset().getCog(1).getPresLured(), false);
+    EXPECT_EQ(battle.getCogset().getCog(1).getLuredKnockback(), 50);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         if (i >= 2) {
             EXPECT_EQ(battle.getCogset().getCog(i).getLured(), 3);
             EXPECT_EQ(battle.getCogset().getCog(i).getPresLured(), true);
+            EXPECT_EQ(battle.getCogset().getCog(i).getLuredKnockback(), 65);
         }
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 
     battle.setCogset(set);
     // xoxo (single prestige override on same turn)
-    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
+    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 0 ? 3 : 7);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 0 ? 3 : 4);
         EXPECT_EQ(battle.getCogset().getCog(i).getPresLured(), i % 2 == 0 ? false : true);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLuredKnockback(), i % 2 == 0 ? 50 : 65);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 
     battle.setCogset(set);
     // oooo (group prestige override on same turn)
-    battle.turn(battle.parseOneliner("x-x- 10dollar 5dollar pres hypno"));
+    battle.turn(battle.parseOneliner("x-x- 50dollar 5dollar pres hypno").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i % 2 == 1 ? 4 : (i == 0 ? 8 : 7));
+        EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i == 0 ? 5 : 4);
         EXPECT_EQ(battle.getCogset().getCog(i).getPresLured(), true);
+        EXPECT_EQ(battle.getCogset().getCog(i).getLuredKnockback(), 65);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
+    }
+
+    battle.setCogset(set);
+    // bonus knockback
+    Strategy s = battle.parseOneliner("xx-- 10dollar pres 5dollar lom");
+    battle.affect(s.soses);
+    battle.turn(s.gags);
+    EXPECT_TRUE(battle.getCogset().getCog(0).getLured());
+    EXPECT_EQ(battle.getCogset().getCog(0).getPresLured(), false);
+    EXPECT_EQ(battle.getCogset().getCog(0).getLuredKnockback(), 65);
+    EXPECT_TRUE(battle.getCogset().getCog(1).getLured());
+    EXPECT_EQ(battle.getCogset().getCog(1).getPresLured(), true);
+    EXPECT_EQ(battle.getCogset().getCog(1).getLuredKnockback(), 80);
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        if (i >= 2) {
+            EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
+        }
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), preHP[i]);
     }
 }
@@ -568,8 +609,8 @@ TEST_F(BattleTest, LureKnockbackDamage) {
     battle.setPresState(false);
     vector<int> postHP{39, 39, 52, 58};
 
-    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
-    battle.turn(battle.parseOneliner("xxxx seltzer hose cream cream"));
+    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet").gags);
+    battle.turn(battle.parseOneliner("xxxx seltzer hose cream cream").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
         EXPECT_FALSE(battle.getCogset().getCog(i).getPresLured());
@@ -577,8 +618,8 @@ TEST_F(BattleTest, LureKnockbackDamage) {
     }
 
     battle.setCogset(set);
-    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet"));
-    battle.turn(battle.parseOneliner("xxxx hose cloud cake cake"));
+    battle.turn(battle.parseOneliner("pres -x-x 10dollar 10dollar bigmagnet").gags);
+    battle.turn(battle.parseOneliner("xxxx hose cloud cake cake").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 }
 
@@ -588,14 +629,14 @@ TEST_F(BattleTest, LureNoKnockbackDamage) {
     battle.setPresState(false);
     vector<int> postHP{84, 132, 135, 158};
 
-    battle.turn(battle.parseOneliner("x-xx anvil rake taser hypno"));
+    battle.turn(battle.parseOneliner("x-xx anvil rake taser hypno").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getLured(), i < 2 ? 4 : 0);
         EXPECT_FALSE(battle.getCogset().getCog(i).getPresLured());
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), postHP[i]);
     }
 
-    battle.turn(battle.parseOneliner("kazoo"));
+    battle.turn(battle.parseOneliner("kazoo").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getLured());
         EXPECT_FALSE(battle.getCogset().getCog(i).getPresLured());
@@ -608,12 +649,12 @@ TEST_F(BattleTest, Sound) {
     battle.setPresState(true);
 
     // damage check
-    battle.turn(battle.parseOneliner("3 trunk aoogah"));
+    battle.turn(battle.parseOneliner("3 trunk aoogah").gags);
     EXPECT_EQ(battle.getCogset().getSize(), 4);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 12);
     // kill check
     battle.setCogset(vector<Cog>(4, 12));
-    battle.turn(battle.parseOneliner("4 trunk"));
+    battle.turn(battle.parseOneliner("4 trunk").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 
     // high-low tests
@@ -622,20 +663,20 @@ TEST_F(BattleTest, Sound) {
     set.push_back(Cog("15.exe"));
     battle.setCogset(set);
     battle.setPresState(false);
-    battle.turn(battle.parseOneliner("fog 2 pres trunk"));
+    battle.turn(battle.parseOneliner("fog 2 pres trunk").gags);
     EXPECT_EQ(battle.getCogset().getSize(), 4);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 9);
     // 9.exes still live because max lvl is not high enough
     set[3] = Cog("14.exe");
     battle.setCogset(set);
     battle.setPresState(true);
-    battle.turn(battle.parseOneliner("fog 2 trunk"));
+    battle.turn(battle.parseOneliner("fog 2 trunk").gags);
     EXPECT_EQ(battle.getCogset().getSize(), 4);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 3);
     // 9.exes are destroyed
     set[3] = Cog("15.exe");
     battle.setCogset(set);
-    battle.turn(battle.parseOneliner("fog 2 trunk"));
+    battle.turn(battle.parseOneliner("fog 2 trunk").gags);
     EXPECT_EQ(battle.getCogset().getSize(), 1);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 242);
 }
@@ -646,14 +687,14 @@ TEST_F(BattleTest, SoundOther) {
     set.push_back(Cog("8.exe"));
     battle.setCogset(set);
     battle.setPresState(false);
-    battle.turn(battle.parseOneliner("3 pres aoogah fruit right"));
+    battle.turn(battle.parseOneliner("3 pres aoogah fruit right").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
     // sound + drop
     set = vector<Cog>(3, 11);
     set.push_back(Cog("14.exe"));
     battle.setCogset(set);
     battle.setPresState(true);
-    battle.turn(battle.parseOneliner("fog 2 trunk piano right"));
+    battle.turn(battle.parseOneliner("fog 2 trunk piano right").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 }
 
@@ -662,9 +703,9 @@ TEST_F(BattleTest, Squirt) {
     battle.setPresState(false);
 
     // x---
-    // 4000
-    battle.turn(battle.parseOneliner("cloud left"));
-    EXPECT_EQ(battle.getCogset().getCog(0).getSoaked(), 4);
+    // 5000
+    battle.turn(battle.parseOneliner("cloud left").gags);
+    EXPECT_EQ(battle.getCogset().getCog(0).getSoaked(), 5);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 76);
     for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
@@ -672,9 +713,9 @@ TEST_F(BattleTest, Squirt) {
     }
 
     // -,o,
-    // 3222
-    battle.turn(battle.parseOneliner("pres flower mid-right"));
-    EXPECT_EQ(battle.getCogset().getCog(0).getSoaked(), 3);
+    // 4222
+    battle.turn(battle.parseOneliner("pres flower mid-right").gags);
+    EXPECT_EQ(battle.getCogset().getCog(0).getSoaked(), 4);
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 76);
     for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), 2);
@@ -684,7 +725,7 @@ TEST_F(BattleTest, Squirt) {
     // -,o,
     // 0444
     battle.setCogset(vector<Cog>(4, 11));
-    battle.turn(battle.parseOneliner("pres hose mid-right"));
+    battle.turn(battle.parseOneliner("pres hose mid-right").gags);
     EXPECT_FALSE(battle.getCogset().getCog(0).getSoaked());
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 156);
     for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
@@ -695,7 +736,7 @@ TEST_F(BattleTest, Squirt) {
     // o,--
     // 2200
     battle.setCogset(vector<Cog>(4, 11));
-    battle.turn(battle.parseOneliner("pres flower left"));
+    battle.turn(battle.parseOneliner("pres flower left").gags);
     EXPECT_TRUE(battle.getCogset().getCog(0).getSoaked());
     EXPECT_EQ(battle.getCogset().getCog(0).getHP(), 152);
     for (size_t i = 1; i < battle.getCogset().getSize(); ++i) {
@@ -709,23 +750,23 @@ TEST_F(BattleTest, Squirt) {
 
     // --,o
     // 1122
-    battle.turn(battle.parseOneliner("pres flower right"));
+    battle.turn(battle.parseOneliner("pres flower right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i < 2 ? 1 : 2);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i % 3 == 0 ? 4 : 0));
     }
 
     // --x-
-    // 0011
-    battle.turn(battle.parseOneliner("flower mid-right"));
+    // 0021
+    battle.turn(battle.parseOneliner("flower mid-right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i < 2 ? 0 : 1);
+        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i < 2 ? 0 : (i == 2 ? 2 : 1));
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i != 1 ? 4 : 0));
     }
 
     // ,o,-
     // 3330
-    battle.turn(battle.parseOneliner("pres gun mid-left"));
+    battle.turn(battle.parseOneliner("pres gun mid-left").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i == 3 ? 0 : 3);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i != 1 ? 4 : 12));
@@ -733,7 +774,7 @@ TEST_F(BattleTest, Squirt) {
 
     // -x--
     // 2220
-    battle.turn(battle.parseOneliner("flower mid-left"));
+    battle.turn(battle.parseOneliner("flower mid-left").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i == 3 ? 0 : 2);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i != 1 ? 4 : 16));
@@ -741,7 +782,7 @@ TEST_F(BattleTest, Squirt) {
 
     // -x--
     // 4440
-    battle.turn(battle.parseOneliner("flower mid-left pres seltzer mid-left"));
+    battle.turn(battle.parseOneliner("flower mid-left pres seltzer mid-left").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i == 3 ? 0 : 4);
         EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 156 - (i != 1 ? 4 : 57));
@@ -749,44 +790,30 @@ TEST_F(BattleTest, Squirt) {
 }
 
 TEST_F(BattleTest, Zap) {
-    battle.setCogset(vector<Cog>(4, 13));
+    battle.setCogset(vector<Cog>(4, 14));
     battle.setPresState(false);
-    battle.turn(battle.parseOneliner("pres flower mid-left taser left"));
-    int postSoakHP[4] = {210, 206, 210, 210};
+    battle.turn(battle.parseOneliner("pres seltzer mid-left taser left").gags);
+    int postSoakHP[4] = {240, 210, 240, 240};
     int taser[3] = {72, 54, 36};
     int taserP[3] = {72, 60, 48};
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i == 3 ? 0 : 2);
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 210 : postSoakHP[i] - taser[i]);
+        EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i == 3 ? 0 : 3);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 240 : postSoakHP[i] - taser[i]);
     }
-    battle.turn(battle.parseOneliner("pres taser mid-right"));
+    battle.turn(battle.parseOneliner("pres taser mid-right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(battle.getCogset().getCog(i).getSoaked(), i == 3 ? 0 : 1);
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 210 : postSoakHP[i] - taser[i] - taserP[2-i]);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 240 : postSoakHP[i] - taser[i] - taserP[2-i]);
     }
-    battle.turn(battle.parseOneliner("taser mid-left"));
+    battle.turn(battle.parseOneliner("taser mid-left").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 210 : postSoakHP[i] - taser[i] - taserP[2-i] - taser[(4-i)%3]);
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 240 : postSoakHP[i] - taser[i] - taserP[2-i] - taser[(4-i)%3]);
     }
-    battle.turn(battle.parseOneliner("pres taser right"));
+    battle.turn(battle.parseOneliner("pres taser right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 186 : postSoakHP[i] - taser[i] - taserP[2-i] - taser[(4-i)%3]);
-    }
-
-    battle.setCogset(vector<Cog>(4, 13));
-    battle.turn(battle.parseOneliner("electra"));
-    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_FALSE(battle.getCogset().getCog(i).getSoaked());
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 210 - 70);
-    }
-
-    battle.setCogset(vector<Cog>(4, {"13.exe"}));
-    battle.turn(battle.parseOneliner("sid nat"));
-    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-        EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
-        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), 315 - 56 - (85*3));
+        EXPECT_EQ(battle.getCogset().getCog(i).getHP(), i == 3 ? 216 : postSoakHP[i] - taser[i] - taserP[2-i] - taser[(4-i)%3]);
     }
 }
 
@@ -804,9 +831,9 @@ TEST_F(BattleTest, ZapStandardCombosPreSoaked) {
         battle.setCogset(vector<Cog>(4, 23));
         // soak all
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-            battle.getCogset().getCog(i).setSoaked(2);
+            battle.getCogset().getCog(i).setSoaked(4);
         }
-        battle.turn(battle.parseOneliner(pair.first));
+        battle.turn(battle.parseOneliner(pair.first).gags);
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
             EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
             EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
@@ -826,7 +853,7 @@ TEST_F(BattleTest, ZapStandardCombosWithSquirt) {
     };
     for (auto& pair : expectedResults) {
         battle.setCogset(vector<Cog>(4, 23));
-        battle.turn(battle.parseOneliner(pair.first));
+        battle.turn(battle.parseOneliner(pair.first).gags);
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
             EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
             EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
@@ -844,7 +871,7 @@ TEST_F(BattleTest, ZapComplexCombos) {
     };
     for (auto& pair : expectedResults) {
         battle.setCogset(vector<Cog>(4, 23));
-        battle.turn(battle.parseOneliner(pair.first));
+        battle.turn(battle.parseOneliner(pair.first).gags);
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
             EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
             EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
@@ -855,27 +882,27 @@ TEST_F(BattleTest, ZapComplexCombos) {
 
     battle.setCogset(vector<Cog>{Cog(12), Cog("12.exe"), Cog(11), Cog(11)});
     // 200 298 160 165
-    battle.turn(battle.parseOneliner("xx-- cross tesla tv x-x- clouds"));
+    battle.turn(battle.parseOneliner("xx-- cross tesla tv x-x- clouds").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 
     battle.setCogset(vector<Cog>{Cog(15), Cog("14.exe"), Cog(13), Cog(11)});
     // 278 363 212 165
-    battle.turn(battle.parseOneliner("xx-- cross teslas x-x- clouds"));
+    battle.turn(battle.parseOneliner("xx-- cross teslas x-x- clouds").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 
     battle.setCogset(vector<Cog>{Cog(13), Cog("14.exe"), Cog(7), Cog("14.exe")});
     // 212 363 80 363
-    battle.turn(battle.parseOneliner("-x-x teslas x-x- clouds"));
+    battle.turn(battle.parseOneliner("-x-x teslas x-x- clouds").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 
     battle.setCogset(vector<Cog>{Cog("14.exe"), Cog(7), Cog("14.exe"), Cog(13)});
     // 363 80 363 212
-    battle.turn(battle.parseOneliner("x-x- cross teslas -x-x clouds"));
+    battle.turn(battle.parseOneliner("x-x- cross teslas -x-x clouds").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 
     battle.setCogset(vector<Cog>{Cog(14), Cog("14.exe"), Cog(13), Cog("10.exe")});
     // 245 363 212 198
-    battle.turn(battle.parseOneliner("-x-x cross teslas x-x- clouds"));
+    battle.turn(battle.parseOneliner("-x-x cross teslas x-x- clouds").gags);
     EXPECT_TRUE(battle.getCogset().allDead());
 }
 
@@ -895,9 +922,9 @@ TEST_F(BattleTest, ZapMoreComplexCombos) {
         battle.setCogset(vector<Cog>(4, {"23.exe"}));
         // soak all
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-            battle.getCogset().getCog(i).setSoaked(2);
+            battle.getCogset().getCog(i).setSoaked(5);
         }
-        battle.turn(battle.parseOneliner(pair.first));
+        battle.turn(battle.parseOneliner(pair.first).gags);
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
             EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
             EXPECT_EQ(900 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
@@ -919,33 +946,9 @@ TEST_F(BattleTest, ZapQuestionableCombos) {
         battle.setCogset(vector<Cog>(4, 23));
         // soak all
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-            battle.getCogset().getCog(i).setSoaked(2);
+            battle.getCogset().getCog(i).setSoaked(5);
         }
-        battle.turn(battle.parseOneliner(pair.first));
-        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-            EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
-            EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
-        }
-    }
-}
-
-TEST_F(BattleTest, ZapWithSOS) {
-    battle.setPresState(true);
-    map<string,vector<int>> expectedResults = {
-        {"x-x- tv tv dentist", {335, 235, 355, 215}},
-        {"dentist x-x- tesla tv", {413, 235, 420, 267}},
-        {"xx-- tesla tesla electra", {573, 573, 342, 342}},
-        {"-xx- tesla taser dentist", {183, 393, 372, 267}},
-        {"-xx- cross tv tv nat", {355, 475, 455, 335}},
-        {"dentist -xx- cross lightning tesla", {300, 533, 507, 295}},
-    };
-    for (auto& pair : expectedResults) {
-        battle.setCogset(vector<Cog>(4, 23));
-        // soak all
-        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-            battle.getCogset().getCog(i).setSoaked(2);
-        }
-        battle.turn(battle.parseOneliner(pair.first));
+        battle.turn(battle.parseOneliner(pair.first).gags);
         for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
             EXPECT_TRUE(battle.getCogset().getCog(i).getSoaked());
             EXPECT_EQ(600 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
@@ -957,13 +960,13 @@ TEST_F(BattleTest, Throw) {
     battle.setCogset(vector<Cog>(4, 18));
     battle.setPresState(false);
     int expectedResults[4] = {11, 87, 72, 327};
-    battle.turn(battle.parseOneliner("xxXX fruitslice pres cream 2 bdayslices pres cake wedding"));
+    battle.turn(battle.parseOneliner("xxXX fruitslice pres cream 2 bdayslices pres cake wedding").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
     }
 
     battle.setCogset(vector<Cog>(2, 18));
-    battle.turn(battle.parseOneliner("4 fruit left 4 pres fruit right"));
+    battle.turn(battle.parseOneliner("4 fruit left 4 pres fruit right").gags);
     EXPECT_EQ(380 - battle.getCogset().getCog(0).getHP(), 216);
     EXPECT_EQ(380 - battle.getCogset().getCog(1).getHP(), 250);
 }
@@ -972,27 +975,27 @@ TEST_F(BattleTest, Drop) {
     battle.setCogset(vector<Cog>(4, 18));
     battle.setPresState(false);
     int expectedResults[4] = {35, 55, 250, 183};
-    battle.turn(battle.parseOneliner("xxXX bowling pres anvil pot boulder weight pres anvil"));
+    battle.turn(battle.parseOneliner("xxXX bowling pres anvil pot boulder weight pres anvil").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
     }
     // non pres combo damages
     int comboDamages[4] = {55, 143, 231, 330};
     battle.setCogset(vector<Cog>(4, 18));
-    battle.turn(battle.parseOneliner("anvil left 2 anvil mid-left 3 anvil mid-right 4 anvil right"));
+    battle.turn(battle.parseOneliner("anvil left 2 anvil mid-left 3 anvil mid-right 4 anvil right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), comboDamages[i]);
     }
     // mix pres combo damages
     int mixComboDamages1[3] = {149, 240, 248};
     battle.setCogset(vector<Cog>(3, 18));
-    battle.turn(battle.parseOneliner("anvil left pres anvil left 2 anvil mid pres anvil mid anvil right 2 pres anvil right"));
+    battle.turn(battle.parseOneliner("anvil left pres anvil left 2 anvil mid pres anvil mid anvil right 2 pres anvil right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), mixComboDamages1[i]);
     }
     int mixComboDamages2[3] = {341, 352, 363};
     battle.setCogset(vector<Cog>(3, 18));
-    battle.turn(battle.parseOneliner("3 anvil left pres anvil left 2 anvil mid 2 pres anvil mid anvil right 3 pres anvil right"));
+    battle.turn(battle.parseOneliner("3 anvil left pres anvil left 2 anvil mid 2 pres anvil mid anvil right 3 pres anvil right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), mixComboDamages2[i]);
     }
@@ -1000,45 +1003,53 @@ TEST_F(BattleTest, Drop) {
     int presComboDamages[4] = {55, 154, 256, 374};
     battle.setCogset(vector<Cog>(4, 18));
     battle.setPresState(true);
-    battle.turn(battle.parseOneliner("anvil left 2 anvil mid-left 3 anvil mid-right 4 anvil right"));
+    battle.turn(battle.parseOneliner("anvil left 2 anvil mid-left 3 anvil mid-right 4 anvil right").gags);
     for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
         EXPECT_EQ(380 - battle.getCogset().getCog(i).getHP(), presComboDamages[i]);
     }
 }
 
 TEST_F(BattleTest, DropSOS) {
-    battle.setCogset(vector<Cog>(4, 23));
+    battle.setCogset(vector<Cog>(2, {"24.exe"}));
     battle.setPresState(false);
-
-    map<string,vector<int>> expectedResults = {
-        {"rain pot left", {42, 30, 30, 30}},
-        {"rain 3 sandbag right", {60, 60, 60, 120}},
-        {"rain pot mid-left sandbag mid-left weight mid-left", {86, 198, 86, 86}},
-        {"rain 2 safe mid-right anvil mid-right", {183, 183, 488, 183}},
-        {"rain 3 piano left", {1020, 360, 360, 360}},
-        {"ned boulder left safe left weight left", {765, 380, 380, 380}},
-        {"franz 3 boulder left", {1080, 540, 540, 540}},
-        {"bessie 2 piano right", {484, 484, 484, 924}},
-
-        {"rain pres pot left", {44, 32, 32, 32}},
-        {"rain pres sandbag right sandbag right", {47, 47, 47, 87}},
-        {"rain pres pot mid-left sandbag mid-left weight mid-left", {93, 205, 93, 93}},
-        {"rain 2 pres safe mid-right anvil mid-right", {215, 215, 520, 215}},
-        {"rain 3 pres piano left", {1122, 462, 462, 462}},
-        {"bessie 2 pres boulder right", {510, 510, 510, 870}},
-
-        {"rain pot left pot right bowling left", {77, 30, 30, 42}},
-        {"rain pot right pot left bowling left", {94, 47, 47, 59}},
-        {"rain 2 anvil left sandbag mid-left", {142, 52, 32, 32}},
-        {"rain bowling mid-left 2 pot right", {38, 73, 38, 62}},
-    };
-    for (auto& pair : expectedResults) {
-        battle.setCogset(vector<Cog>(4, {"30.exe"}));
-        battle.turn(battle.parseOneliner(pair.first));
-        for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
-            EXPECT_EQ(1488 - battle.getCogset().getCog(i).getHP(), pair.second[i]);
-        }
+    int expectedResults[4] = {96, 185};
+    // 20% boost
+    Strategy s = battle.parseOneliner("bessie xX weight pres anvils");
+    battle.affect(s.soses);
+    battle.turn(s.gags);
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(975 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
     }
+    // 20% + 5% boost
+    s = battle.parseOneliner("rain xx bowlings");
+    battle.affect(s.soses);
+    battle.turn(s.gags);
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(975 - 44 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
+    }
+    // 5% boost
+    s = battle.parseOneliner("rain xx bowlings");
+    battle.affect(s.soses);
+    battle.turn(s.gags);
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(975 - 44 - 37 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
+    }
+    // no boost
+    battle.turn(battle.parseOneliner("xx bowlings").gags);
+    for (size_t i = 0; i < battle.getCogset().getSize(); ++i) {
+        EXPECT_EQ(975 - 44 - 37 - 35 - battle.getCogset().getCog(i).getHP(), expectedResults[i]);
+    }
+}
+
+TEST_F(BattleTest, Rain) {
+    battle.setCogset(vector<Cog>(2, 29));
+    battle.setPresState(false);
+    Strategy s = battle.parseOneliner("rain pierce lom pres hypno");
+    battle.affect(s.soses);
+    battle.turn(s.gags);
+    s = battle.parseOneliner("2 cake right");
+    battle.turn(s.gags);
+    EXPECT_EQ(930 - battle.getCogset().getCog(1).getHP(), 542);
 }
 
 TEST_F(BattleTest, InvalidMove) {
@@ -1046,24 +1057,19 @@ TEST_F(BattleTest, InvalidMove) {
     battle.setCogset(set);
     battle.setPresState(false);
 
-    battle.turn(battle.parseOneliner("10dollar left -xxx banana banana banana"));
+    battle.turn(battle.parseOneliner("10dollar left -xxx banana banana banana").gags);
     vector<string> badcommands = {
         "banana left", // trap on lured
         "banana mid-left", // trap on trapped
-        "10dollar left", // lure on lured
-        "penny" // SOS trap when all are trapped/lured
+        "10dollar left" // lure on lured
     };
     for (string s : badcommands) {
-        EXPECT_THROW(battle.parseOneliner(s), invalid_argument);
+        EXPECT_THROW(battle.parseOneliner(s).gags, invalid_argument);
     }
-    battle.turn(battle.parseOneliner("kazoo"));
-    battle.turn(battle.parseOneliner("banana left"));
-    // SOS trap when all are trapped
-    EXPECT_THROW(battle.parseOneliner("penny"), invalid_argument);
-    battle.turn(battle.parseOneliner("hypno"));
-    battle.turn(battle.parseOneliner("hypno"));
+    battle.turn(battle.parseOneliner("kazoo").gags);
+    battle.turn(battle.parseOneliner("banana left").gags);
+    battle.turn(battle.parseOneliner("hypno").gags);
+    battle.turn(battle.parseOneliner("hypno").gags);
     // group lure when all are lured
-    EXPECT_THROW(battle.parseOneliner("hypno"), invalid_argument);
-    // SOS trap when all are trapped
-    EXPECT_THROW(battle.parseOneliner("penny"), invalid_argument);
+    EXPECT_THROW(battle.parseOneliner("hypno").gags, invalid_argument);
 }

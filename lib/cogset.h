@@ -24,7 +24,6 @@ public:
 
     void attack(const std::vector<int>& affected);
     void attack(const std::vector<int>& affected, char type);
-    void apply(const std::vector<int>& affected, GagKind gk);
 
     void fireTurn(const std::vector<Gag>& fires);
     void trapTurn(const std::vector<Gag>& traps);

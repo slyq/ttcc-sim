@@ -8,7 +8,7 @@
 #include <string>
 #include <time.h>
 
-#define PADDING 28
+#define PADDING 27
 
 using namespace std;
 
@@ -66,7 +66,11 @@ bool Cogset::allDead() const {
     return allDead;
 }
 
+/*
+Handle attacks and printing of damages
+*/
 void Cogset::attack(const vector<int>& affected, char type) {
+    int PREPADDING = 1; // squirt round digit
     bool activity = false;
     for (int i : affected) {
         if (i) {
@@ -76,7 +80,7 @@ void Cogset::attack(const vector<int>& affected, char type) {
     }
     if (activity) {
         if (printCogset) {
-            cout << "\t";
+            cout << "\t" << string(PREPADDING, ' ');
         }
         if (affected.size() == cogs.size()) {
             for (size_t i = 0; i < cogs.size(); ++i) {
@@ -113,22 +117,6 @@ void Cogset::attack(const vector<int>& affected, char type) {
 
 void Cogset::attack(const vector<int>& affected) { attack(affected, 0); }
 
-void Cogset::apply(const vector<int>& affected, GagKind gk) {
-    if (affected.size() == cogs.size()) {
-        for (size_t i = 0; i < cogs.size(); ++i) {
-            if (affected[i]) {
-                if (gk == GagKind::TRAP) {
-                    cogs[i].setTrap(affected[i]);
-                } else if (gk == GagKind::LURE) {
-                    cogs[i].setLured(abs(affected[i]), affected[i] > 0);
-                } else if (gk == GagKind::SQUIRT) {
-                    cogs[i].setSoaked(abs(affected[i]), affected[i] > 0);
-                }
-            }
-        }
-    }
-}
-
 int Cogset::numLured() const {
     int lurecount = 0;
     for (size_t i = 0; i < cogs.size(); ++i) {
@@ -151,21 +139,10 @@ void Cogset::gagCheck(const Gag& gagchoice) const {
         }
     }
     if (gagchoice.kind == GagKind::TRAP) {
-        if (gagchoice.target == -1) {
-            // note: the checks below deviate from the true game experience, which is buggy with trap SOS
-            if (trapcount == cogs.size()) {
-                throw invalid_argument("Cannot place an SOS trap when all cogs are already trapped");
-            } else if (lurecount == cogs.size()) {
-                throw invalid_argument("Cannot place an SOS trap when all cogs are already lured");
-            } else if (trapcount + lurecount == cogs.size()) {
-                throw invalid_argument("Cannot place an SOS trap when all cogs are already trapped or lured");
-            }
-        } else {
-            if (cogs[gagchoice.target].getTrap()) {
+        if (cogs[gagchoice.target].getTrap()) {
                 throw invalid_argument("Cannot trap an already trapped cog");
-            } else if (cogs[gagchoice.target].getLured()) {
-                throw invalid_argument("Cannot trap an already lured cog");
-            }
+        } else if (cogs[gagchoice.target].getLured()) {
+            throw invalid_argument("Cannot trap an already lured cog");
         }
     } else if (gagchoice.kind == GagKind::LURE) {
         if (gagchoice.target == -1 && lurecount == cogs.size()) {
@@ -194,25 +171,8 @@ void Cogset::fireTurn(const vector<Gag>& fires) {
 
 void Cogset::trapTurn(const vector<Gag>& traps) {
     vector<int> setups(cogs.size(), 0);
-    char badMix = 0;
     for (const Gag& g : traps) {
-        if (g.target == -1) {
-            badMix |= 1;
-            // sos gag - hits all
-            for (size_t i = 0; i < setups.size(); ++i) {
-                if (setups[i]) {
-                    // trap conflict - all traps become null
-                    badMix = 3;
-                    break;
-                } else if (cogs[i].getTrap() || cogs[i].getLured()) {
-                    setups[i] = -1;
-                } else if (cogs[i].getHP() != 0) {
-                    setups[i] = g.damage;
-                    // setups[i] = g.prestiged ? g.damage + cogs[i].getLevel() * 3 : g.damage;
-                }
-            }
-        } else if (cogs[g.target].getHP() != 0) {
-            badMix |= 2;
+        if (cogs[g.target].getHP() != 0) {
             if (setups[g.target] || cogs[g.target].getTrap() || cogs[g.target].getLured()) {
                 // trap conflict - all traps targeting this cog become null
                 setups[g.target] = -1;
@@ -223,11 +183,15 @@ void Cogset::trapTurn(const vector<Gag>& traps) {
     }
     // set traps
     for (int& i : setups) {
-        if (i == -1 || badMix == 3) {
+        if (i == -1) {
             i = 0;
         }
     }
-    apply(setups, GagKind::TRAP);
+    for (size_t i = 0; i < cogs.size(); ++i) {
+        if (setups[i]) {
+            cogs[i].setTrap(setups[i]);
+        }
+    }
     if (printCogset) {
         cout << TRAPPED << "Trap" << rang::style::reset << "\t";
         print(setups);
@@ -237,48 +201,47 @@ void Cogset::trapTurn(const vector<Gag>& traps) {
 void Cogset::lureTurn(const vector<Gag>& lures) {
     vector<int> damages(cogs.size(), 0);
     vector<int> lured(cogs.size(), 0);
-    // lure rounds can stack, and prestige overrides non-prestige
+    // lure rounds do not stack, and prestige overrides non-prestige, but not the other way around
+    // it is assumed that max buff is shared among all toons
+    int bonusKnockback = 0;
     for (const Gag& g : lures) {
+        bonusKnockback = g.bonusEffect > bonusKnockback ? g.bonusEffect : bonusKnockback;
         if (g.target == -1) {
             // group lure
             for (size_t i = 0; i < cogs.size(); ++i) {
-                if (cogs[i].getHP() != 0) {
-                    if (!cogs[i].getLured()) {
-                        if (g.prestiged) {
-                            lured[i] = abs(lured[i]) + g.passiveEffect;
-                        } else {
-                            lured[i] += lured[i] > 0 ? g.passiveEffect : -1 * g.passiveEffect;
-                        }
-                        if (cogs[i].getTrap()) {
-                            damages[i] = cogs[i].getTrap();
-                        }
+                if (cogs[i].getHP() != 0 && !cogs[i].getLured() && abs(lured[i]) < g.passiveEffect) {
+                    if (g.prestiged) {
+                        // this gag dominates
+                        lured[i] = g.passiveEffect;
+                    } else {
+                        // this gag's duration dominates, but is not prestiged
+                        lured[i] = lured[i] > 0 ? g.passiveEffect : -1 * g.passiveEffect;
+                    }
+                    if (cogs[i].getTrap()) {
+                        damages[i] = cogs[i].getTrap();
                     }
                 }
             }
-        } else if (cogs[g.target].getHP() != 0) {
-            if (!cogs[g.target].getLured()) {
-                if (g.prestiged) {
-                    lured[g.target] = abs(lured[g.target]) + g.passiveEffect;
-                } else {
-                    lured[g.target] += lured[g.target] > 0 ? g.passiveEffect : -1 * g.passiveEffect;
-                }
-                if (cogs[g.target].getTrap()) {
-                    damages[g.target] = cogs[g.target].getTrap();
-                }
+        } else if (cogs[g.target].getHP() != 0 && !cogs[g.target].getLured() && abs(lured[g.target]) < g.passiveEffect) {
+            if (g.prestiged) {
+                // this gag dominates
+                lured[g.target] = g.passiveEffect;
+            } else {
+                // this gag's duration dominates, but is not prestiged
+                lured[g.target] = lured[g.target] > 0 ? g.passiveEffect : -1 * g.passiveEffect;
             }
-        }
-    }
-    // add extra turn
-    for (int& i : lured) {
-        if (i > 0) {
-            ++i;
-        } else if (i < 0) {
-            --i;
+            if (cogs[g.target].getTrap()) {
+                damages[g.target] = cogs[g.target].getTrap();
+            }
         }
     }
     // apply lure
     attack(damages);
-    apply(lured, GagKind::LURE);
+    for (size_t i = 0; i < cogs.size(); ++i) {
+        if (lured[i]) {
+            cogs[i].setLured(abs(lured[i]), lured[i] > 0, bonusKnockback);
+        }
+    }
     if (printCogset) {
         cout << LURED << "Lure" << rang::style::reset << "\t";
         print(lured);
@@ -324,32 +287,11 @@ void Cogset::squirtTurn(const vector<Gag>& squirts) {
     vector<bool> multi(cogs.size(), false);
     vector<int> soakRounds(cogs.size(), 0);
     vector<bool> presSoaked(cogs.size(), false);
-    int targ = -1;
-    bool sos = false;
     // soak rounds do not stack but can be reset to a higher number
     // same mechanic applies to surrounding cogs for prestige squirt
     for (const Gag& g : squirts) {
-        int effectiveRounds = g.passiveEffect + 1 + g.prestiged;
-        if (g.target == -1) {
-            // sos gag - hits all
-            for (size_t i = 0; i < damages.size(); ++i) {
-                if (cogs[i].getHP() != 0) {
-                    if (damages[i]) {
-                        multi[i] = true;
-                    }
-                    damages[i] += g.damage;
-                    if (effectiveRounds > soakRounds[i]) {
-                        soakRounds[i] = effectiveRounds;
-                    }
-                }
-            }
-            sos = true;
-        } else if (cogs[g.target].getHP() != 0) {
-            // single target gag
-            // obtain first hit target for sos combo
-            if (targ == -1) {
-                targ = g.target;
-            }
+        int effectiveRounds = g.passiveEffect;
+        if (cogs[g.target].getHP() != 0) {
             if (damages[g.target]) {
                 multi[g.target] = true;
             }
@@ -380,21 +322,20 @@ void Cogset::squirtTurn(const vector<Gag>& squirts) {
         }
     }
     // damage and print effect
-    apply(soakRounds, GagKind::SQUIRT);
+    for (size_t i = 0; i < cogs.size(); ++i) {
+        if (soakRounds[i]) {
+            cogs[i].setSoaked(abs(soakRounds[i]));
+        }
+    }
     vector<int> knockback(cogs.size(), 0);
     vector<int> combo(cogs.size(), 0);
     for (size_t i = 0; i < cogs.size(); ++i) {
         if (damages[i]) {
-            if (cogs[i].getLured() && cogs[i].getPresLured()) {
-                // pres lure knockback
-                knockback[i] = ceil(damages[i] * 0.65);
-            } else if (cogs[i].getLured()) {
+            if (cogs[i].getLured()) {
                 // lure knockback
-                knockback[i] = ceil(damages[i] * 0.5);
+                knockback[i] = ceil(damages[i] * cogs[i].getLuredKnockback() / 100.0);
             }
-            if (sos && targ != -1) {
-                combo[i] = ceil(damages[targ] * 0.2);
-            } else if (multi[i]) {
+            if (multi[i]) {
                 // combo bonus
                 combo[i] = ceil(damages[i] * 0.2);
             }
@@ -416,19 +357,18 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
     vector<bool> jumped(cogs.size(), false);
     // obtain soaked cogs valid for zapping
     vector<bool> soaked;
+    vector<int> zaC(cogs.size(), 0);
     for (size_t i = 0; i < cogs.size(); ++i) {
         soaked.push_back(cogs[i].getSoaked());
     }
     for (const Gag& g : zaps) {
         vector<int> damages(cogs.size(), 0);
-        if (g.target == -1) {
-            for (size_t i = 0; i < damages.size(); ++i) {
-                damages[i] += g.damage * (soaked[i] ? 3 : 1);
-            }
-        } else if (!soaked[g.target] || cogs[g.target].getHP() == 0) {
-            // starting on a dry cog or a cog that was dead before the zap turn
+        if (!soaked[g.target] || cogs[g.target].getHP() == 0) {
+            // zap doesn't travel - starting on a dry/dead cog
+            // if dry, still apply damage
             if (cogs[g.target].getHP()) {
                 damages[g.target] += g.damage;
+                zaC[g.target]++;
             }
         } else {
             // examine each zap's effect on all cogs (avoid recalculating on the same cog)
@@ -443,10 +383,12 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
                     if (hitCount == 0) {
                         // at this point, first cog is already determined to be zappable
                         damages[targ] += ceil((3 - hitCount * dropoff) * g.damage);
+                        zaC[targ]++;
                         ++hitCount;
                     } else if (!jumped[targ] && soaked[targ] && (cogs[targ].getHP() - sumDamages[targ] > 0)) {
                         // cog is zappable - not jumped, soaked, and living after previous zaps
                         damages[targ] += ceil((3 - hitCount * dropoff) * g.damage);
+                        zaC[targ]++;
                         jumped[targ] = true;
                         lastTarget = targ;
                         ++hitCount;
@@ -472,6 +414,10 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
     for (const vector<int>& d : allDamages) {
         attack(d);
     }
+    // reduce soak
+    for (size_t i = 0; i < cogs.size(); ++i) {
+        cogs[i].reduceSoaked(zaC[i]);
+    }
     if (printCogset) {
         cout << ZAPPED << "Zap" << rang::style::reset << "\t";
         print(sumDamages);
@@ -481,27 +427,8 @@ void Cogset::zapTurn(const vector<Gag>& zaps) {
 void Cogset::throwTurn(const vector<Gag>& throws) {
     vector<int> damages(cogs.size(), 0);
     vector<bool> multi(cogs.size(), false);
-    int targ = -1;
-    bool sos = false;
     for (const Gag& g : throws) {
-        if (g.target == -1) {
-            // sos gag - hits all
-            for (size_t i = 0; i < damages.size(); ++i) {
-                if (cogs[i].getHP() != 0) {
-                    if (damages[i]) {
-                        multi[i] = true;
-                    }
-                    damages[i] += g.damage;
-                }
-                // damages[i] += g.prestiged ? ceil(g.damage * 1.15) : g.damage;
-            }
-            sos = true;
-        } else if (cogs[g.target].getHP() != 0) {
-            // single target gag
-            // obtain first hit target for sos combo
-            if (targ == -1) {
-                targ = g.target;
-            }
+        if (cogs[g.target].getHP() != 0) {
             if (damages[g.target]) {
                 multi[g.target] = true;
             }
@@ -514,16 +441,11 @@ void Cogset::throwTurn(const vector<Gag>& throws) {
     vector<int> combo(cogs.size(), 0);
     for (size_t i = 0; i < cogs.size(); ++i) {
         if (damages[i]) {
-            if (cogs[i].getLured() && cogs[i].getPresLured()) {
-                // pres lure knockback
-                knockback[i] = ceil(damages[i] * 0.65);
-            } else if (cogs[i].getLured()) {
+            if (cogs[i].getLured()) {
                 // lure knockback
-                knockback[i] = ceil(damages[i] * 0.5);
+                knockback[i] = ceil(damages[i] * cogs[i].getLuredKnockback() / 100.0);
             }
-            if (sos && targ != -1) {
-                combo[i] = ceil(damages[targ] * 0.2);
-            } else if (multi[i]) {
+            if (multi[i]) {
                 // combo bonus
                 combo[i] = ceil(damages[i] * 0.2);
             }
@@ -541,24 +463,9 @@ void Cogset::throwTurn(const vector<Gag>& throws) {
 void Cogset::dropTurn(const vector<Gag>& drops) {
     vector<int> damages(cogs.size(), 0);
     vector<int> multi(cogs.size(), 0);
-    int targ = -1;
-    bool sos = false;
+    // rip rain combos
     for (const Gag& g : drops) {
-        if (g.target == -1) {
-            // sos gag - hits all
-            for (size_t i = 0; i < damages.size(); ++i) {
-                if (cogs[i].getHP() != 0 && !cogs[i].getLured()) {
-                    damages[i] += g.damage;
-                    multi[i] += 10;
-                }
-            }
-            sos = true;
-        } else if (cogs[g.target].getHP() != 0 && !cogs[g.target].getLured()) {
-            // single target gag
-            // obtain first hit target for sos combo
-            if (targ == -1) {
-                targ = g.target;
-            }
+        if (cogs[g.target].getHP() != 0 && !cogs[g.target].getLured()) {
             // accumulate raw damage
             damages[g.target] += g.damage;
             if (g.prestiged) {
@@ -568,16 +475,11 @@ void Cogset::dropTurn(const vector<Gag>& drops) {
             }
         }
     }
-    // damage and print effect
-
+    // calculate combo
     vector<int> combo(cogs.size(), 0);
     for (size_t i = 0; i < cogs.size(); ++i) {
         if (damages[i]) {
-            if (sos && targ != -1) {
-                // if sos + another drop, all cogs get hit with combo damage from first cog
-                // if just sos, no bonus damage
-                combo[i] = ceil(damages[targ] * (multi[targ] + 10) / 100.0);
-            } else if (multi[i] > 15) {
+            if (multi[i] > 15) {
                 // combo bonus
                 combo[i] = ceil(damages[i] * (multi[i] + 10) / 100.0);
             }

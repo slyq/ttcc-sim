@@ -8,7 +8,7 @@
 using namespace std;
 
 int main() {
-    cout << rang::fgB::gray << "Toontown Corporate Clash Battle Simulator by slyq" << rang::style::reset << endl;
+    cout << rang::fgB::gray << "Toontown Corporate Clash Battle Simulator by slyq (Sushi)" << rang::style::reset << endl;
     string choice;
     bool presState;
     bool hitState;

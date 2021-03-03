@@ -1,11 +1,11 @@
-feather 8 70
-megaphone 15 70
-lipstick 26 70
-bamboo 39 70
-pixie 50 70
-juggling 78 70
-confetti 95 70
-highdive 135 70
+feather 8 95
+megaphone 15 95
+lipstick 26 95
+bamboo 39 95
+pixie 50 95
+juggling 78 95
+confetti 95 95
+highdive 135 95
 banana 20 100
 rake 30 100
 spring 45 100
@@ -14,14 +14,14 @@ quicksand 90 100
 trapdoor 140 100
 wreckingball 200 100
 tnt 240 100
-1dollar 0 50 2
-smallmagnet 0 50 2
-5dollar 0 60 3
-bigmagnet 0 60 3
-10dollar 0 70 4
-hypno 0 70 4
-50dollar 0 80 5
-presentation 0 80 5
+1dollar 0 65 3
+smallmagnet 0 65 3
+5dollar 0 70 4
+bigmagnet 0 70 4
+10dollar 0 75 5
+hypno 0 75 5
+50dollar 0 80 6
+presentation 0 80 6
 kazoo 4 95
 bikehorn 7 95
 whistle 11 95
@@ -30,14 +30,14 @@ aoogah 21 95
 trunk 32 95
 fog 50 95
 opera 65 95
-flower 4 95 1
-glass 8 95 1
-gun 12 95 2
-wballoon 21 95 2
-seltzer 30 95 3
-hose 56 95 3
-cloud 80 95 4
-geyser 115 95 4
+flower 4 95 3
+glass 8 95 3
+gun 12 95 4
+wballoon 21 95 4
+seltzer 30 95 5
+hose 56 95 5
+cloud 80 95 6
+geyser 115 95 6
 buzzer 4 30
 rug 6 30
 balloon 10 30
@@ -62,28 +62,28 @@ weight 80 50
 safe 125 50
 boulder 180 50
 piano 220 50
-chuckle 78
-don 95
-flippy 150
-will 140
-penny 200
-clara 240
-stinkyned 0 3
-nancy 0 4
-oldman 0 5
-barbara 40
-sonata 60
-moe 85
-sid 56 3
-sanjay 80 4
-sharky 115 4
-dentist 45
-electra 70
-nat 85
-cleff 75
-cindy 110
-pierce 145
-ned 125
-franz 180
-bessie 220
-rain 20
+chuckle 20 2
+don 30 2
+flippy 40 2
+will 10 2
+penny 15 2
+clara 20 2
+stinkyned 5 2
+nancy 10 2
+lom 15 2
+barbara 5 2
+sonata 10 2
+moe 15 2
+sid 10 2
+sanjay 15 2
+sharky 20 2
+dentist 5 2
+electra 10 2
+nat 15 2
+cleff 10 2
+cindy 15 2
+pierce 20 2
+ned 10 2
+franz 15 2
+bessie 20 2
+rain 5 1

@@ -15,6 +15,20 @@ struct GagComparator {
     bool operator()(const Gag& first, const Gag& second) const { return first.damage > second.damage; }
 };
 
+struct Strategy {
+    std::vector<Gag> gags;
+    std::vector<Sos> soses;
+    Strategy(std::vector<Gag> gags, std::vector<Sos> soses) : gags(gags), soses(soses) {}
+};
+
+struct Buff {
+    int effect;
+    int maxRounds;
+    int effectiveRounds;
+    Buff() {}
+    Buff(int e, int r) : effect(e), maxRounds(r), effectiveRounds(r) {}
+};
+
 class Battle {
 public:
     Battle() {}
@@ -43,15 +57,17 @@ public:
 
     Cogset& getCogset() { return cogset; }
     void setCogset(std::vector<Cog> set) { cogset = Cogset(set); }
-    std::vector<Gag> parseOneliner(std::string strat);
+    Strategy parseOneliner(std::string strat);
     Gag parseGag(std::string command);
 
     void turn(std::vector<Gag> strat);
+    void affect(std::vector<Sos> soses);
 
 private:
     Cogset cogset;
     std::queue<Cog> loader;
     std::vector<Gag> successfulGags;
+    std::map<SosKind, Buff> buffs;
     GagCollection gc;
     std::map<std::string, int> posDefinition = {
         {"left", 0},

@@ -53,6 +53,22 @@ void Battle::generate() {
     loader = cogQueue;
 }
 
+void Battle::affect(vector<Sos> soses) {
+    // rain acts independently, SOSes of the same type do not stack and take the best effect
+    for (Sos s : soses) {
+        if (buffs.find(s.kind) != buffs.end()) {
+            // reset current duration to max
+            buffs[s.kind].effectiveRounds = buffs[s.kind].maxRounds;
+            if (s.passiveEffect > buffs[s.kind].effect) {
+                // if continuing sos is better, use that effect
+                buffs[s.kind].effect = s.passiveEffect;
+            }
+        } else {
+            buffs[s.kind] = Buff(s.passiveEffect, s.duration);
+        }
+    }
+}
+
 void Battle::turn(vector<Gag> strat) {
     srand(time(NULL));
     vector<vector<Gag>> gags;
@@ -81,6 +97,22 @@ void Battle::turn(vector<Gag> strat) {
                 hitGags = gags[i];
             } else {
                 hitGags = accuracyFilter(gags[i]);
+            }
+            if (buffs.find((SosKind)i) != buffs.end() || buffs.find(SosKind::ALL) != buffs.end()) {
+                int extra = 0;
+                if (buffs.find(SosKind::ALL) != buffs.end()) {
+                    extra = buffs[SosKind::ALL].effect;
+                }
+                if (i != 2) {
+                    for (Gag& g : hitGags) {
+                        g.damage += ceil(g.damage * (buffs[(SosKind)i].effect + extra) / 100.0);
+                    }
+                } else {
+                    // knockback bonus
+                    for (Gag& g : hitGags) {
+                        g.bonusEffect += buffs[(SosKind)i].effect + extra;
+                    }
+                }
             }
             switch (i) {
             case 1:
@@ -113,6 +145,14 @@ void Battle::turn(vector<Gag> strat) {
     }
     cogset.load(loader);
     cogset.update();
+    auto it = buffs.begin();
+    while (it != buffs.end()) {
+        if (--(it->second.effectiveRounds) <= 0) {
+            it = buffs.erase(it);
+        } else {
+            ++it;
+        }
+    }
     posDefinition["right"] = cogset.getSize() - 1;
 }
 
@@ -265,9 +305,10 @@ for gags that are relevant to the cross, the director temporarily functions as a
 relevant or the command is fully parsed, at which point cross gags in the block are assigned targets until the director is emptied
 the director will never serve as both a queue and stack at the same time
 */
-vector<Gag> Battle::parseOneliner(string strat) {
+Strategy Battle::parseOneliner(string strat) {
     posDefinition["right"] = cogset.getSize() - 1;
     vector<Gag> gags;
+    vector<Sos> soses;
     deque<int> director;
     stringstream ss(strat);
     string buffer;
@@ -275,6 +316,10 @@ vector<Gag> Battle::parseOneliner(string strat) {
     int quickhand = 0, multiplier = 1;
     size_t crossApplyIndex = 0;
     while (ss >> buffer) {  // each loop parses one command block
+        if (gc.isSos(buffer)) {
+            soses.push_back(gc.getSos(buffer));
+            continue;
+        }
         if (buffer == "pres") {
             ss >> buffer;
             if (validQuickhand(buffer) || buffer == "cross") {
@@ -329,7 +374,7 @@ vector<Gag> Battle::parseOneliner(string strat) {
         crossApplyIndex = gags.size();
         int spread = 0;
         Gag remember;
-        do {  // each loop parses a gag block
+        do {  // each loop parses an SOS or gag block
             if (buffer.size() == 1 && isdigit(buffer[0])) {
                 if (quickhand) {
                     // spread by specific amount
@@ -347,7 +392,7 @@ vector<Gag> Battle::parseOneliner(string strat) {
                 gagpres = true;
                 ss >> buffer;
             }
-            if (gc.contains(buffer) || isPluralGag(buffer)) {
+            if (gc.isGag(buffer) || isPluralGag(buffer)) {
                 Gag gagchoice;
                 if (isPluralGag(buffer)) {
                     if (!spread && quickhand) {
@@ -360,7 +405,7 @@ vector<Gag> Battle::parseOneliner(string strat) {
                     // repeat last gag
                     if (remember.kind == GagKind::PASS) {
                         // first time through, store
-                        gagchoice = gc.get(buffer);
+                        gagchoice = gc.getGag(buffer);
                         remember = gagchoice;
                     } else {
                         // retrieve
@@ -372,7 +417,7 @@ vector<Gag> Battle::parseOneliner(string strat) {
                     }
                 } else {
                     // get gag
-                    gagchoice = gc.get(buffer);
+                    gagchoice = gc.getGag(buffer);
 
                 }
                 if (cross && (remember.kind != gagchoice.kind || remember.name != gagchoice.name)) {
@@ -381,13 +426,13 @@ vector<Gag> Battle::parseOneliner(string strat) {
                 }
                 gagchoice.prestiged = gagpres || blockpres;
                 if (quickhand > 0 && director.size()) {
-                    if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
+                    if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND || gc.isSos(buffer)) {
                         throw invalid_argument("Cannot use multi-target gags/SOS in a quickhand strategy");
                     }
                     // retrieve target from the "queued" targets parsed from the quickhand
                     gagchoice.target = director.front();
                     director.pop_front();
-                } else if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND || gc.isSOS(buffer)) {
+                } else if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND) {
                     gagchoice.target = -1;
                 } else if (cogset.getSize() == 1) {
                     gagchoice.target = 0;
@@ -476,7 +521,7 @@ vector<Gag> Battle::parseOneliner(string strat) {
     }
     sort(gags.begin(), gags.end(), GagComparator());
     reverse(gags.begin(), gags.end());
-    return gags;
+    return Strategy(gags, soses);
 }
 
 Gag Battle::parseGag(string command) {
@@ -495,8 +540,8 @@ Gag Battle::parseGag(string command) {
         throw invalid_argument("Unrecognized gag \"" + gag_name + "\"");
     }
     if (gag_name != "PASS") {
-        gagchoice = gc.get(gag_name);
-        if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND || gc.isSOS(gag_name)) {
+        gagchoice = gc.getGag(gag_name);
+        if (((gagchoice.kind == GagKind::TOONUP || gagchoice.kind == GagKind::LURE) && gagchoice.level % 2 == 0) || gagchoice.kind == GagKind::SOUND) {
             gagchoice.target = -1;
         } else if (cogset.getSize() == 1) {
             // single target, automatic
@@ -544,6 +589,7 @@ void Battle::battle() {
     deque<vector<Gag>> gagHistory;
     bool doTurn = false;
     vector<Gag> gags;
+    vector<Sos> soses;
     size_t numToons = 4;
     size_t toonIndex = 1;
 
@@ -552,6 +598,14 @@ void Battle::battle() {
             // print cogs
             cout << endl << ">>\t" << cogset << endl << endl;
         }
+        // print current buffs
+        if (!buffs.empty()) {
+            cout << "Current buffs: " << endl;
+            for (const pair<SosKind, Buff>& b : buffs) {
+                cout << gc.getSosTypeString(b.first) << " " << b.second.effect << "% boost" << " for " << b.second.effectiveRounds << " rounds" << endl;
+            }
+        }
+        
         if (lineInput) {  // one liner
             cout << PROMPT << "Your strategy: " << rang::style::reset;
         } else {
@@ -611,7 +665,9 @@ void Battle::battle() {
             // parse specific command
             if (lineInput) {
                 try {
-                    gags = parseOneliner(strat);
+                    Strategy s = parseOneliner(strat);
+                    gags = s.gags;
+                    soses = s.soses;
                     doTurn = true;
                 } catch (const invalid_argument& e) {
                     cerr << e.what() << endl;
@@ -622,7 +678,11 @@ void Battle::battle() {
                     --toonIndex;
                 } else {
                     try {
-                        gags.push_back(parseGag(strat));
+                        if (gc.isSos(strat)) {
+                            soses.push_back(gc.getSos(strat));
+                        } else {
+                            gags.push_back(parseGag(strat));
+                        }
                         if (++toonIndex > numToons) {
                             doTurn = true;
                             toonIndex = 1;
@@ -638,6 +698,7 @@ void Battle::battle() {
 
         if (doTurn) {
             battleHistory.push_back(*this);
+            affect(soses);
             turn(gags);
             gagHistory.push_back(successfulGags);
             // reset
